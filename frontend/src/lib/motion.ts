@@ -39,3 +39,11 @@ export const FLOAT: Transition = {
   ease: "easeInOut",
 };
 export const FLOAT_Y = { y: [0, 5, 0] };
+
+export const EQUALIZER_Y = { scaleY: [0.35, 1, 0.5, 0.85, 0.35] };
+export const equalizerTransition = (delay = 0): Transition => ({
+  duration: 0.9,
+  repeat: Infinity,
+  ease: "easeInOut",
+  delay,
+});

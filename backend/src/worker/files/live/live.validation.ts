@@ -12,3 +12,10 @@ export const translateLive = z.object({
 });
 
 export type ITranslateLiveBody = z.infer<typeof translateLive>;
+
+export const speakLive = z.object({
+	text: z.string().trim().min(1).max(MAX_UTTERANCE_CHARS),
+	lang: z.enum(OUTPUT_LANGUAGE_CODES),
+});
+
+export type ISpeakLiveBody = z.infer<typeof speakLive>;

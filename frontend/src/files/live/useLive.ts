@@ -11,6 +11,7 @@ import {
   MAX_UTTERANCE_CHARS,
 } from "./live.constants";
 import { splitOversizedUtterance } from "./live.utils";
+import useSpeech from "./useSpeech";
 import type { IUtterance, LiveStatus } from "./live.interface";
 
 const sleep = (ms: number) =>
@@ -61,6 +62,10 @@ const useLive = () => {
     [],
   );
 
+  const { speakUtterance, stopSpeech, clearSpeechCache } = useSpeech({
+    upsertUtterance,
+  });
+
   const stopRecording = useCallback(() => {
     wantListeningRef.current = false;
     if (stopTimerRef.current) {
@@ -97,6 +102,13 @@ const useLive = () => {
               status: "done",
               translation: result?.data?.translation,
             });
+            if (result?.data?.translation) {
+              speakUtterance(
+                next.id,
+                result.data.translation,
+                outputLangRef.current,
+              );
+            }
             if (typeof result?.data?.remainingChars === "number") {
               setRemainingChars(result.data.remainingChars);
             }
@@ -145,7 +157,7 @@ const useLive = () => {
       }
     }
     pumpingRef.current = false;
-  }, [failRemainingQueue, stopRecording, upsertUtterance]);
+  }, [failRemainingQueue, speakUtterance, stopRecording, upsertUtterance]);
 
   useEffect(() => {
     if (finalTranscript.length < sentLenRef.current) {
@@ -195,6 +207,7 @@ const useLive = () => {
     resetTranscript();
     sentLenRef.current = 0;
     queueRef.current = [];
+    clearSpeechCache();
     setUtterances([]);
     wantListeningRef.current = true;
     stopTimerRef.current = setTimeout(() => {
@@ -211,11 +224,25 @@ const useLive = () => {
     });
   }, [
     browserSupportsContinuousListening,
+    clearSpeechCache,
     inputLang,
     quotaExhausted,
     resetTranscript,
     stopRecording,
   ]);
+
+  const speakUtteranceById = useCallback(
+    (id: string) => {
+      const target = utterances.find((item) => item.id === id);
+      if (!target?.translation) return;
+      if (target.speechStatus === "playing") {
+        stopSpeech();
+        return;
+      }
+      speakUtterance(id, target.translation, outputLangRef.current);
+    },
+    [speakUtterance, stopSpeech, utterances],
+  );
 
   const retryUtterance = useCallback(
     (id: string) => {
@@ -253,6 +280,7 @@ const useLive = () => {
     startRecording,
     stopRecording,
     retryUtterance,
+    speakUtteranceById,
   };
 };
 

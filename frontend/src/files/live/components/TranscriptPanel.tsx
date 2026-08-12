@@ -3,6 +3,7 @@ import { AudioLines, RotateCw } from "lucide-react";
 import SkeletonElement from "@/components/elements/SkeletonElement";
 import ButtonElement from "@/components/elements/ButtonElement";
 import EmptyState from "@/components/common/EmptyState";
+import SpeakButton from "./SpeakButton";
 import { SPRING } from "@/lib/motion";
 import { languageLabel } from "../live.utils";
 import { INPUT_LANGUAGES, OUTPUT_LANGUAGES } from "../live.constants";
@@ -15,6 +16,7 @@ interface TranscriptPanelProps {
   inputLang: string;
   outputLang: string;
   onRetry: (id: string) => void;
+  onSpeak: (id: string) => void;
 }
 
 const TranscriptPanel = ({
@@ -24,6 +26,7 @@ const TranscriptPanel = ({
   inputLang,
   outputLang,
   onRetry,
+  onSpeak,
 }: TranscriptPanelProps) => {
   if (status === "idle" && utterances.length === 0 && !interimTranscript) {
     return (
@@ -79,9 +82,15 @@ const TranscriptPanel = ({
                   <SkeletonElement className="h-5 w-3/4 rounded-lg" />
                 )}
                 {utterance.status === "done" && (
-                  <p className="font-medium text-foreground">
-                    {utterance.translation}
-                  </p>
+                  <span className="flex items-start justify-between gap-2">
+                    <p className="font-medium text-foreground">
+                      {utterance.translation}
+                    </p>
+                    <SpeakButton
+                      status={utterance.speechStatus ?? "idle"}
+                      onClick={() => onSpeak(utterance.id)}
+                    />
+                  </span>
                 )}
                 {utterance.status === "failed" && (
                   <span className="flex items-center gap-2 text-sm text-destructive">

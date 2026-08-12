@@ -3,12 +3,18 @@ import LiveService from "./live.service";
 import { AppError } from "../../utils/errors";
 import { respond } from "../../core/response";
 import { StatusCodes } from "../../constants";
-import type { ITranslateLiveBody } from "./live.validation";
+import type { ITranslateLiveBody, ISpeakLiveBody } from "./live.validation";
 
 type TranslateLiveContext = Context<
 	{ Bindings: Env },
 	string,
 	{ in: { json: ITranslateLiveBody }; out: { json: ITranslateLiveBody } }
+>;
+
+type SpeakLiveContext = Context<
+	{ Bindings: Env },
+	string,
+	{ in: { json: ISpeakLiveBody }; out: { json: ISpeakLiveBody } }
 >;
 
 export const translateLiveController = async (c: TranslateLiveContext) => {
@@ -30,6 +36,27 @@ export const translateLiveController = async (c: TranslateLiveContext) => {
 	}
 
 	c.header("X-Quota-Day-Remaining", String(result.remaining));
+	return respond(c, StatusCodes.SUCCESS, {
+		success: true,
+		message: result.message,
+		data: result.data,
+	});
+};
+
+export const speakLiveController = async (c: SpeakLiveContext) => {
+	const body = c.req.valid("json");
+	const clientIp = c.req.header("cf-connecting-ip") ?? "local";
+	const result = await LiveService.speak(c.env, body, clientIp);
+
+	if (!result.success) {
+		if (result.code === "PROVIDER") {
+			throw new AppError(result.message, StatusCodes.BAD_GATEWAY);
+		}
+		throw new AppError(result.message, StatusCodes.TOO_MANY_REQUESTS, {
+			"Retry-After": String(result.retryAfterSeconds),
+		});
+	}
+
 	return respond(c, StatusCodes.SUCCESS, {
 		success: true,
 		message: result.message,

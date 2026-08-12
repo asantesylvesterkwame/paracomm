@@ -53,6 +53,13 @@ export const OUTPUT_LANGUAGES: readonly ILanguageOption[] = [
   { code: "am", label: "Amharic" },
 ];
 
+export const TTS_UNSUPPORTED_OUTPUT_LANGS: readonly string[] = [
+  "tw",
+  "ee",
+  "ha",
+  "yo",
+];
+
 export const MAX_UTTERANCE_CHARS = 500;
 export const MAX_RECORDING_SECONDS = 60;
 export const DEFAULT_INPUT_LANGUAGE = "en-US";

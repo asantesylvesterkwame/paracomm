@@ -26,6 +26,7 @@ const Live = () => {
     startRecording,
     stopRecording,
     retryUtterance,
+    speakUtteranceById,
   } = useLive();
 
   return (
@@ -102,6 +103,7 @@ const Live = () => {
                 inputLang={inputLang}
                 outputLang={outputLang}
                 onRetry={retryUtterance}
+                onSpeak={speakUtteranceById}
               />
             </motion.div>
           </motion.div>

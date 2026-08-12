@@ -27,6 +27,8 @@
 	"vars": {
 		"DAILY_CHAR_BUDGET": "15000",
 		"TRANSLATION_MODEL": "gemini-3.6-flash",
+		"TTS_MODEL": "gemini-3.1-flash-tts-preview",
+		"TTS_VOICE": "Kore",
 		"CORS_ORIGINS": "http://localhost:5173,https://paracomm.intelligentson17.workers.dev"
 	}
 }

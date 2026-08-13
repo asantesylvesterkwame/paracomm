@@ -54,3 +54,29 @@ export const checkAndConsumeDailyChars = async (
 		retryAfterSeconds: 0,
 	};
 };
+
+export const checkAndConsumeUserDailyChars = async (
+	env: Env,
+	userId: string,
+	chars: number,
+) => {
+	const day = new Date().toISOString().slice(0, 10).replaceAll("-", "");
+	const key = `chat:day:${day}:${userId}`;
+	const budget = Number(env.CHAT_DAILY_CHAR_BUDGET);
+	const used = Number((await env.LIVE_QUOTA.get(key)) ?? "0");
+	if (used + chars > budget) {
+		return {
+			allowed: false as const,
+			remaining: Math.max(0, budget - used),
+			retryAfterSeconds: secondsToUtcMidnight(),
+		};
+	}
+	await env.LIVE_QUOTA.put(key, String(used + chars), {
+		expirationTtl: 90000,
+	});
+	return {
+		allowed: true as const,
+		remaining: budget - used - chars,
+		retryAfterSeconds: 0,
+	};
+};

@@ -15,6 +15,20 @@
       "id": "a66b85132c504573a533d17cb61e3c20"
     }
   ],
+  "durable_objects": {
+    "bindings": [
+      {
+        "name": "ROOM_DO",
+        "class_name": "RoomDO"
+      }
+    ]
+  },
+  "migrations": [
+    {
+      "tag": "v1",
+      "new_sqlite_classes": ["RoomDO"]
+    }
+  ],
   "d1_databases": [
     {
       "binding": "DB",

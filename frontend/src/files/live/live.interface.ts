@@ -2,12 +2,15 @@ export type UtteranceStatus = "pending" | "done" | "failed";
 
 export type SpeechStatus = "idle" | "loading" | "playing" | "failed";
 
+export type UtteranceDirection = "outbound" | "inbound";
+
 export interface IUtterance {
   id: string;
   sourceText: string;
   translation?: string;
   status: UtteranceStatus;
   speechStatus?: SpeechStatus;
+  direction?: UtteranceDirection;
 }
 
 export type LiveStatus =
@@ -28,6 +31,7 @@ export interface ILiveTranslationData {
   provider: string;
   sourceLang: string;
   targetLang: string;
+  detectedLang: string;
   remainingChars: number;
 }
 

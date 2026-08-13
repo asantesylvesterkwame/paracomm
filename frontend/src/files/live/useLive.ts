@@ -40,6 +40,8 @@ const useLive = () => {
   const queueRef = useRef<IUtterance[]>([]);
   const pumpingRef = useRef(false);
   const stopTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const speechActiveRef = useRef(false);
+  const resumeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const inputLangRef = useRef(inputLang);
   const outputLangRef = useRef(outputLang);
 
@@ -62,8 +64,37 @@ const useLive = () => {
     [],
   );
 
+  const handleSpeechStart = useCallback(() => {
+    speechActiveRef.current = true;
+    if (resumeTimerRef.current) {
+      clearTimeout(resumeTimerRef.current);
+      resumeTimerRef.current = null;
+    }
+    if (wantListeningRef.current) {
+      void SpeechRecognition.abortListening();
+    }
+  }, []);
+
+  const handleSpeechEnd = useCallback(() => {
+    speechActiveRef.current = false;
+    if (!wantListeningRef.current) return;
+    if (resumeTimerRef.current) clearTimeout(resumeTimerRef.current);
+    resumeTimerRef.current = setTimeout(() => {
+      resumeTimerRef.current = null;
+      if (!wantListeningRef.current || speechActiveRef.current) return;
+      resetTranscript();
+      sentLenRef.current = 0;
+      void SpeechRecognition.startListening({
+        continuous: browserSupportsContinuousListening,
+        language: inputLangRef.current,
+      });
+    }, 400);
+  }, [browserSupportsContinuousListening, resetTranscript]);
+
   const { speakUtterance, stopSpeech, clearSpeechCache } = useSpeech({
     upsertUtterance,
+    onSpeechStart: handleSpeechStart,
+    onSpeechEnd: handleSpeechEnd,
   });
 
   const stopRecording = useCallback(() => {
@@ -98,19 +129,25 @@ const useLive = () => {
               targetLang: outputLangRef.current,
             }),
           onSuccess: (result) => {
+            const data = result?.data;
+            const direction =
+              data?.detectedLang === outputLangRef.current
+                ? ("inbound" as const)
+                : ("outbound" as const);
             upsertUtterance(next.id, {
               status: "done",
-              translation: result?.data?.translation,
+              translation: data?.translation,
+              direction,
             });
-            if (result?.data?.translation) {
-              speakUtterance(
-                next.id,
-                result.data.translation,
-                outputLangRef.current,
-              );
+            if (data?.translation) {
+              const speakLang =
+                direction === "inbound"
+                  ? inputLangRef.current.split("-")[0]
+                  : outputLangRef.current;
+              speakUtterance(next.id, data.translation, speakLang);
             }
-            if (typeof result?.data?.remainingChars === "number") {
-              setRemainingChars(result.data.remainingChars);
+            if (typeof data?.remainingChars === "number") {
+              setRemainingChars(data.remainingChars);
             }
             queueRef.current.shift();
             resolve();
@@ -179,7 +216,7 @@ const useLive = () => {
   }, [finalTranscript, pumpQueue]);
 
   useEffect(() => {
-    if (!listening && wantListeningRef.current) {
+    if (!listening && wantListeningRef.current && !speechActiveRef.current) {
       void SpeechRecognition.startListening({
         continuous: browserSupportsContinuousListening,
         language: inputLangRef.current,
@@ -191,6 +228,7 @@ const useLive = () => {
     return () => {
       wantListeningRef.current = false;
       if (stopTimerRef.current) clearTimeout(stopTimerRef.current);
+      if (resumeTimerRef.current) clearTimeout(resumeTimerRef.current);
       void SpeechRecognition.abortListening();
     };
   }, []);
@@ -239,7 +277,11 @@ const useLive = () => {
         stopSpeech();
         return;
       }
-      speakUtterance(id, target.translation, outputLangRef.current);
+      const speakLang =
+        target.direction === "inbound"
+          ? inputLangRef.current.split("-")[0]
+          : outputLangRef.current;
+      speakUtterance(id, target.translation, speakLang);
     },
     [speakUtterance, stopSpeech, utterances],
   );

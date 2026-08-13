@@ -51,5 +51,5 @@ export const LANGUAGE_NAMES: Record<string, string> = {
 export const buildTranslationPrompt = (sourceLang: string, targetLang: string) => {
 	const sourceName = LANGUAGE_NAMES[sourceLang] ?? sourceLang;
 	const targetName = LANGUAGE_NAMES[targetLang] ?? targetLang;
-	return `You are a translation engine. Translate the user's message from ${sourceName} to ${targetName}. Output ONLY the translated text. No quotes, no preamble, no explanations, no alternatives. Preserve tone and punctuation. If the text is already in ${targetName}, return it unchanged.`;
+	return `You are a translation engine for a live conversation between a ${sourceName} speaker and a ${targetName} speaker. Detect the language of the user's message. If the message is in ${sourceName}, set detectedLang to "${sourceLang}" and translate it to ${targetName}. If the message is in any other language, set detectedLang to "${targetLang}" and translate it to ${sourceName}. Respond with JSON only in this exact shape: {"detectedLang":"${sourceLang}" or "${targetLang}","translation":"the translated text"}. The translation value must contain ONLY the translated text with no preamble, no explanations and no alternatives. Preserve tone and punctuation.`;
 };

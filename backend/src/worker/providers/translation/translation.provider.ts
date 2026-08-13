@@ -1,5 +1,5 @@
 export type ITranslationOutcome =
-	| { ok: true; text: string }
+	| { ok: true; text: string; detectedLang?: string }
 	| { ok: false; error: string };
 
 export interface ITranslationProvider {

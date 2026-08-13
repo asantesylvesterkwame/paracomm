@@ -1,34 +1,35 @@
 {
-	"$schema": "node_modules/wrangler/config-schema.json",
-	"name": "paracomm-backend",
-	"main": "./src/worker/index.ts",
-	"compatibility_date": "2025-10-08",
-	"compatibility_flags": ["nodejs_compat"],
-	"observability": {
-		"enabled": true
-	},
-	"upload_source_maps": true,
-	"kv_namespaces": [
-		{
-			"binding": "LIVE_QUOTA",
-			"id": "a66b85132c504573a533d17cb61e3c20"
-		}
-	],
-	"ratelimits": [
-		{
-			"name": "LIVE_RPM",
-			"namespace_id": "1001",
-			"simple": {
-				"limit": 20,
-				"period": 60
-			}
-		}
-	],
-	"vars": {
-		"DAILY_CHAR_BUDGET": "15000",
-		"TRANSLATION_MODEL": "gemini-3.6-flash",
-		"TTS_MODEL": "gemini-3.1-flash-tts-preview",
-		"TTS_VOICE": "Kore",
-		"CORS_ORIGINS": "http://localhost:5173,https://paracomm.intelligentson17.workers.dev"
-	}
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "paracomm-backend",
+  "main": "./src/worker/index.ts",
+  "compatibility_date": "2025-10-08",
+  "compatibility_flags": ["nodejs_compat"],
+  "observability": {
+    "enabled": true
+  },
+  "keep_vars": true,
+  "upload_source_maps": true,
+  "kv_namespaces": [
+    {
+      "binding": "LIVE_QUOTA",
+      "id": "a66b85132c504573a533d17cb61e3c20"
+    }
+  ],
+  "ratelimits": [
+    {
+      "name": "LIVE_RPM",
+      "namespace_id": "1001",
+      "simple": {
+        "limit": 20,
+        "period": 60
+      }
+    }
+  ],
+  "vars": {
+    "DAILY_CHAR_BUDGET": "15000",
+    "TRANSLATION_MODEL": "gemini-3.6-flash",
+    "TTS_MODEL": "gemini-3.1-flash-tts-preview",
+    "TTS_VOICE": "Kore",
+    "CORS_ORIGINS": "http://localhost:5173,https://paracomm.intelligentson17.workers.dev"
+  }
 }

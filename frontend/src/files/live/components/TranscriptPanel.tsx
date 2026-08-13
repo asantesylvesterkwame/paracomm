@@ -48,15 +48,27 @@ const TranscriptPanel = ({
         <div className="flex flex-col gap-2 text-[15px] leading-relaxed">
           <AnimatePresence initial={false}>
             {utterances.map((utterance) => (
-              <motion.p
+              <motion.div
                 key={utterance.id}
                 initial={{ opacity: 0, y: 8 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={SPRING.card}
-                className="text-foreground"
               >
-                {utterance.sourceText}
-              </motion.p>
+                {utterance.direction === "inbound" &&
+                utterance.status === "done" ? (
+                  <span className="flex items-start justify-between gap-2">
+                    <p className="font-medium text-foreground">
+                      {utterance.translation}
+                    </p>
+                    <SpeakButton
+                      status={utterance.speechStatus ?? "idle"}
+                      onClick={() => onSpeak(utterance.id)}
+                    />
+                  </span>
+                ) : (
+                  <p className="text-foreground">{utterance.sourceText}</p>
+                )}
+              </motion.div>
             ))}
           </AnimatePresence>
           {interimTranscript && (
@@ -81,17 +93,20 @@ const TranscriptPanel = ({
                 {utterance.status === "pending" && (
                   <SkeletonElement className="h-5 w-3/4 rounded-lg" />
                 )}
-                {utterance.status === "done" && (
-                  <span className="flex items-start justify-between gap-2">
-                    <p className="font-medium text-foreground">
-                      {utterance.translation}
-                    </p>
-                    <SpeakButton
-                      status={utterance.speechStatus ?? "idle"}
-                      onClick={() => onSpeak(utterance.id)}
-                    />
-                  </span>
-                )}
+                {utterance.status === "done" &&
+                  (utterance.direction === "inbound" ? (
+                    <p className="text-foreground">{utterance.sourceText}</p>
+                  ) : (
+                    <span className="flex items-start justify-between gap-2">
+                      <p className="font-medium text-foreground">
+                        {utterance.translation}
+                      </p>
+                      <SpeakButton
+                        status={utterance.speechStatus ?? "idle"}
+                        onClick={() => onSpeak(utterance.id)}
+                      />
+                    </span>
+                  ))}
                 {utterance.status === "failed" && (
                   <span className="flex items-center gap-2 text-sm text-destructive">
                     Could not translate this phrase

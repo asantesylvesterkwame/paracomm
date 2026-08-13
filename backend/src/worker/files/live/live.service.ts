@@ -41,6 +41,12 @@ class LiveService {
 				body.targetLang,
 			);
 			if (outcome.ok) {
+				const detectedLang =
+					outcome.detectedLang === body.targetLang
+						? body.targetLang
+						: body.sourceLang;
+				const effectiveTargetLang =
+					detectedLang === body.targetLang ? body.sourceLang : body.targetLang;
 				return {
 					success: true as const,
 					message: liveMessages.TRANSLATED,
@@ -48,7 +54,8 @@ class LiveService {
 						translation: outcome.text,
 						provider: provider.name,
 						sourceLang: body.sourceLang,
-						targetLang: body.targetLang,
+						targetLang: effectiveTargetLang,
+						detectedLang,
 						remainingChars: quota.remaining,
 					},
 					remaining: quota.remaining,

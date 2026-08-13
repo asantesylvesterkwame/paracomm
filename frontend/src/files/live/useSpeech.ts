@@ -15,8 +15,12 @@ const base64ToBlobUrl = (base64: string, mimeType: string) => {
 
 const useSpeech = ({
   upsertUtterance,
+  onSpeechStart,
+  onSpeechEnd,
 }: {
   upsertUtterance: (id: string, changes: Partial<IUtterance>) => void;
+  onSpeechStart?: () => void;
+  onSpeechEnd?: () => void;
 }) => {
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const urlCacheRef = useRef<Map<string, string>>(new Map());
@@ -34,8 +38,9 @@ const useSpeech = ({
     if (currentIdRef.current) {
       upsertUtterance(currentIdRef.current, { speechStatus: "idle" });
       currentIdRef.current = null;
+      onSpeechEnd?.();
     }
-  }, [upsertUtterance]);
+  }, [onSpeechEnd, upsertUtterance]);
 
   const play = useCallback(
     (id: string, url: string) => {
@@ -46,18 +51,22 @@ const useSpeech = ({
       audio.onended = () => {
         upsertUtterance(id, { speechStatus: "idle" });
         if (currentIdRef.current === id) currentIdRef.current = null;
+        onSpeechEnd?.();
       };
       audio.onerror = () => {
         upsertUtterance(id, { speechStatus: "failed" });
         if (currentIdRef.current === id) currentIdRef.current = null;
+        onSpeechEnd?.();
       };
       upsertUtterance(id, { speechStatus: "playing" });
+      onSpeechStart?.();
       audio.play().catch(() => {
         upsertUtterance(id, { speechStatus: "idle" });
         if (currentIdRef.current === id) currentIdRef.current = null;
+        onSpeechEnd?.();
       });
     },
-    [stopSpeech, upsertUtterance],
+    [onSpeechEnd, onSpeechStart, stopSpeech, upsertUtterance],
   );
 
   const speakWithBrowser = useCallback(
@@ -74,14 +83,17 @@ const useSpeech = ({
       utterance.onend = () => {
         upsertUtterance(id, { speechStatus: "idle" });
         if (currentIdRef.current === id) currentIdRef.current = null;
+        onSpeechEnd?.();
       };
       utterance.onerror = () => {
         upsertUtterance(id, { speechStatus: "failed" });
         if (currentIdRef.current === id) currentIdRef.current = null;
+        onSpeechEnd?.();
       };
+      onSpeechStart?.();
       window.speechSynthesis.speak(utterance);
     },
-    [stopSpeech, upsertUtterance],
+    [onSpeechEnd, onSpeechStart, stopSpeech, upsertUtterance],
   );
 
   const speakUtterance = useCallback(

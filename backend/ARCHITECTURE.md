@@ -224,18 +224,20 @@ Every mutating endpoint gets a schema. No decorative validation, no ad hoc `if (
 
 ---
 
-## 8. Auth: Corpland ID JWT + Guest Sessions
+## 8. Auth: Clerk
 
-Auth is delegated, exactly like cubbicles: this backend never issues login tokens for real users — it verifies JWTs minted by the Corpland ID service with the shared `JWT_ACCESS_SECRET`. Guest tokens (instant rooms) are the one token type minted here.
+Auth is delegated to Clerk: this backend never issues login tokens — it verifies Clerk session JWTs. `utils/auth.ts` provides:
 
-`utils/auth.ts` provides two Hono middleware, the translation of `isAuthenticated` in `cubbicles-backend/utils/index.js`:
+- `isAuthenticated` — rejects with a clean 401 `AUTH_NOT_CONFIGURED` when `CLERK_SECRET_KEY` is absent, otherwise composes `clerkMiddleware()` from `@hono/clerk-auth`, reads `getAuth(c)`, and sets `c.set("actor", { type: "user", clerkId })`. 401 `UNAUTHENTICATED` when no session.
+- `verifyWsToken(env, token)` — `verifyToken` from `@clerk/backend` for the WebSocket upgrade path, where the token arrives as a query parameter instead of an `Authorization` header. Returns the clerkId or null; all verification happens in the Worker before any Durable Object sees the request.
 
-- `isAuthenticated` — `Bearer` token → KV denylist check (`DENYLIST` namespace replaces the Redis denylist) → `jwt.verify` with `env.JWT_ACCESS_SECRET` → `c.set("actor", { type: "user", id: payload._id, isAdmin })`. 401 with `Token expired, please sign in again` on expiry.
-- `isAuthenticatedOrGuest` — additionally accepts guest JWTs (`tokenType: "guest"`, signed here, ~24h, scoped to one `roomId`); sets `c.set("actor", { type: "guest", id, roomId, preferredLanguage })`. A guest token is only valid for its own room — services check this through the actor, and the RoomDO checks it on WebSocket upgrade.
+The identity indirection is preserved: the Clerk user id is not a local row id. Every service resolves the local user through `UserUtils.requireCurrentUser(env, actor)` against a `users.clerkId` unique column. The row is created lazily by `UserService.getMe` on first authenticated request — the only place the Clerk Backend API (`clerkClient.users.getUser`) is called; user search always hits D1.
 
-The cubbicles identity indirection is preserved: the JWT `_id` is the **Corpland ID user id**, not a local row id. Every service resolves the local user through `UserUtils.fetchCurrentUser(actor.id)` against a `users.corplandId` unique column, mirroring `User.userId` in Mongo.
+Controllers may pass `c.executionCtx` to services that do fire-and-forget work (`ctx.waitUntil`), one extra argument over the standard trio.
 
-Not ported: the `tokenHandler` sign/verify secret mismatch (`JWT_SECRET` vs `JWT_ACCESS_SECRET`) — this backend has exactly one access secret plus `GUEST_JWT_SECRET`.
+Guest sessions are future work — not implemented. Chat is auth-only and `/live` needs no token at all (IP quota).
+
+Secrets: `CLERK_SECRET_KEY` via `.dev.vars` locally and `wrangler secret put` in prod; `CLERK_PUBLISHABLE_KEY` is non-secret and lives in `wrangler.json` vars.
 
 ---
 

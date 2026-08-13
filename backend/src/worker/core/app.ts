@@ -6,9 +6,10 @@ import { registerRoutes } from "./routes";
 import { generalMessages } from "./messages";
 import { AppError } from "../utils/errors";
 import { StatusCodes } from "../constants";
+import type { AppEnv } from "./types";
 
 export const buildApp = () => {
-	const app = new Hono<{ Bindings: Env }>();
+	const app = new Hono<AppEnv>();
 
 	app.use(secureHeaders());
 	app.use(
@@ -19,8 +20,8 @@ export const buildApp = () => {
 				const allowed = origins.split(",").map((entry) => entry.trim());
 				return allowed.includes(origin) ? origin : "";
 			},
-			allowMethods: ["GET", "POST", "OPTIONS"],
-			allowHeaders: ["Content-Type"],
+			allowMethods: ["GET", "POST", "PATCH", "DELETE", "OPTIONS"],
+			allowHeaders: ["Content-Type", "Authorization"],
 			exposeHeaders: ["X-Quota-Day-Remaining", "Retry-After"],
 		}),
 	);

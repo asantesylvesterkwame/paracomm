@@ -4,15 +4,16 @@ import { AppError } from "../../utils/errors";
 import { respond } from "../../core/response";
 import { StatusCodes } from "../../constants";
 import type { ITranslateLiveBody, ISpeakLiveBody } from "./live.validation";
+import type { AppEnv } from "../../core/types";
 
 type TranslateLiveContext = Context<
-	{ Bindings: Env },
+	AppEnv,
 	string,
 	{ in: { json: ITranslateLiveBody }; out: { json: ITranslateLiveBody } }
 >;
 
 type SpeakLiveContext = Context<
-	{ Bindings: Env },
+	AppEnv,
 	string,
 	{ in: { json: ISpeakLiveBody }; out: { json: ISpeakLiveBody } }
 >;

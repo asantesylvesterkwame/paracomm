@@ -4,6 +4,7 @@ import { MicOff, MonitorSmartphone } from "lucide-react";
 import Logo from "@/components/common/Logo";
 import { ModeToggle } from "@/components/common/ModeToggle";
 import EmptyState from "@/components/common/EmptyState";
+import AuthActions from "@/components/common/AuthActions";
 import { fadeUp, staggerParent } from "@/lib/motion";
 import { ROUTES } from "@/constants/routes.constants";
 import useLive from "../useLive";
@@ -42,6 +43,7 @@ const Live = () => {
               Home
             </Link>
             <ModeToggle />
+            <AuthActions />
           </div>
         </div>
       </header>

@@ -4,6 +4,7 @@ import { Globe2, Languages, Mic, ShieldCheck, Sparkles, Zap } from "lucide-react
 import ButtonElement from "@/components/elements/ButtonElement";
 import Logo from "@/components/common/Logo";
 import { ModeToggle } from "@/components/common/ModeToggle";
+import AuthActions from "@/components/common/AuthActions";
 import { fadeUp, HOVER_LIFT, SPRING, staggerParent } from "@/lib/motion";
 import { ROUTES } from "@/constants/routes.constants";
 import { OUTPUT_LANGUAGES } from "@/files/live/live.constants";
@@ -42,6 +43,7 @@ const Landing = () => {
           <Logo />
           <div className="flex flex-row items-center gap-3">
             <ModeToggle />
+            <AuthActions />
             <Link to={ROUTES.LIVE}>
               <ButtonElement className="h-10 rounded-xl px-5 shadow-[0_8px_20px_-10px_rgba(0,100,255,0.55)]">
                 Try it live

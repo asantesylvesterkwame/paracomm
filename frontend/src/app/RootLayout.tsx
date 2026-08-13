@@ -3,6 +3,8 @@ import { useLocation, useOutlet } from "react-router-dom";
 import { AnimatePresence, motion } from "motion/react";
 import { SPRING } from "@/lib/motion";
 import { Toaster } from "@/components/ui/sonner";
+import { ClerkAppProvider } from "@/providers/clerk-provider";
+import { AuthProvider } from "@/files/auth/auth.context";
 
 const AnimatedOutlet = () => {
   const outlet = useOutlet();
@@ -12,22 +14,25 @@ const AnimatedOutlet = () => {
 
 const RootLayout = () => {
   const location = useLocation();
+  const sectionKey = location.pathname.split("/")[1] || "home";
   return (
-    <>
-      <AnimatePresence mode="wait">
-        <motion.div
-          key={location.pathname}
-          initial={{ opacity: 0, y: 12 }}
-          animate={{ opacity: 1, y: 0 }}
-          exit={{ opacity: 0, y: -8 }}
-          transition={SPRING.card}
-          className="min-h-dvh"
-        >
-          <AnimatedOutlet />
-        </motion.div>
-      </AnimatePresence>
-      <Toaster />
-    </>
+    <ClerkAppProvider>
+      <AuthProvider>
+        <AnimatePresence mode="wait">
+          <motion.div
+            key={sectionKey}
+            initial={{ opacity: 0, y: 12 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -8 }}
+            transition={SPRING.card}
+            className="min-h-dvh"
+          >
+            <AnimatedOutlet />
+          </motion.div>
+        </AnimatePresence>
+        <Toaster />
+      </AuthProvider>
+    </ClerkAppProvider>
   );
 };
 

@@ -15,6 +15,14 @@
       "id": "a66b85132c504573a533d17cb61e3c20"
     }
   ],
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "paracomm",
+      "database_id": "841bf273-3e24-4315-a88b-7cb7182d7161",
+      "migrations_dir": "drizzle"
+    }
+  ],
   "ratelimits": [
     {
       "name": "LIVE_RPM",
@@ -26,6 +34,8 @@
     }
   ],
   "vars": {
+    "CHAT_DAILY_CHAR_BUDGET": "20000",
+    "CLERK_PUBLISHABLE_KEY": "pk_test_c2V0dGxlZC1yYWJiaXQtNTcuY2xlcmsuYWNjb3VudHMuZGV2JA",
     "DAILY_CHAR_BUDGET": "15000",
     "TRANSLATION_MODEL": "gemini-3.6-flash",
     "TTS_MODEL": "gemini-3.1-flash-tts-preview",

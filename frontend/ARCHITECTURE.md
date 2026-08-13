@@ -166,10 +166,9 @@ Hard rules unchanged: no bare try/catch around service calls in hooks, no direct
 
 The only place axios instances and base URLs exist. Base URLs come from `import.meta.env.VITE_*`, never hardcoded:
 
-- `TRANSLATOR_API` → the product backend (`VITE_TRANSLATOR_API_URL`, the Hono Worker in `../backend`)
-- `corplandAccountsAPI` → the shared Corpland ID backend (`VITE_CORPLAND_ID_API_URL`), in `files/auth/auth.api.ts`
+- `PARACOMM_API` → the product backend (`VITE_PARACOMM_API_URL`, the Hono Worker in `../backend`)
 
-Every instance gets both interceptors — and this port closes the two corpland-web gaps: the product instance DOES get the 401 response interceptor (corpland-web's `APIv2` never refreshes), and `handleTokenRefresh` dedupes concurrent refreshes behind a single in-flight promise. The `_retry` guard, token save, and request replay stay as in `utils/api.utils.ts`. Guest tokens ride the same `Authorization: Bearer` header; the request interceptor prefers the user access token and falls back to the stored guest token.
+Identity is Clerk, so there is no `corplandAccountsAPI`, no `files/auth/auth.api.ts`, no stored tokens, and no refresh interceptor. Instead `src/api/index.ts` exposes `registerAuthTokenGetter` / `getAuthToken`: `AuthProvider` registers Clerk's `getToken` once, and the request interceptor awaits a fresh token per request (Clerk session tokens rotate roughly every 60 seconds, so a cached token string is always wrong). `getAuthToken` is also the seam the WebSocket context uses for `?token=` on upgrade.
 
 The `typeof window` SSR guards are dropped — this is a pure SPA.
 
@@ -212,9 +211,11 @@ Unchanged four tier system, one way imports only: `components/ui/` → `componen
 
 ## 11. Auth, Guests, Guards
 
-- `AuthProvider` ports from `files/auth/auth.context.tsx`: fetch Corpland ID user then product profile on mount, expose `user`, `profile`, `isLoading`, `fetchCurrentUser`, `logoutUser`.
-- `files/guest/` is the new entity corpland-web doesn't have: `useGuest` creates guest sessions (`POST /guests/sessions` with join code, display name, preferred language), stores the guest JWT, and `GuestProvider` exposes the active guest identity. The effective actor (user or guest) is resolved in one place, `files/auth/auth.utils.ts`, and everything downstream consumes that.
-- Route guards follow the three corpland-web patterns, no middleware: layout guards that wait on `hasFetched` before `router` redirects, a reverse guard on the landing route, and inline `SignedOutState` where browsing should stay public. Rooms are guest friendly by design — joining via link/QR never demands an account.
+- Identity is Clerk (`@clerk/react` v6, Core 3). `providers/clerk-provider.tsx` owns `isClerkConfigured` and `ClerkAppProvider` (router-aware, themed via the appearance API mapped to our CSS tokens); when the publishable key is absent the app renders fully signed out with setup instructions on auth surfaces.
+- `AuthProvider` in `files/auth/auth.context.tsx` bridges Clerk `useAuth()` to the house context shape: registers the token getter into `src/api/`, bootstraps the product profile via `GET /users/me` (lazy upsert on the backend) when signed in, exposes `profile`, `isSignedIn`, `isAuthLoading`, `isProfileLoading`, `hasFetched`, `refetchProfile`, `updateProfile`.
+- Sign in and sign up are Clerk prebuilt components on `/sign-in/*` and `/sign-up/*` (path routing), rendered inside house motion cards.
+- Route guards: `files/auth/components/RequireAuth.tsx` is a router layout element that waits on Clerk `isLoaded`, redirects signed-out visitors to `/sign-in` with `state.from`, and shows setup instructions when Clerk is unconfigured. `/live` and `/` stay public.
+- Guest sessions (`files/guest/`) are future work — not implemented.
 
 ---
 
@@ -254,10 +255,10 @@ Known corpland-web gaps fixed at the start, not inherited: missing 401 intercept
 
 ## 14. Hard Rules
 
-All eleven hard rules of Architecture-web.md section 11 apply verbatim, with these renames: `app/` route files → `src/app/` route files; axios lives only in `src/api/` and `files/auth/auth.api.ts`; storage/toast only via `SecureStoreService`/`notify`; no `components/ui/` imports, hardcoded tokens, or inline transitions in feature code. Additions for this repo:
+All eleven hard rules of Architecture-web.md section 11 apply verbatim, with these renames: `app/` route files → `src/app/` route files; axios lives only in `src/api/`; storage/toast only via `SecureStoreService`/`notify`; no `components/ui/` imports, hardcoded tokens, or inline transitions in feature code. Additions for this repo:
 
-- `worker/index.ts` never contains product logic; the SPA talks only to `../backend` and Corpland ID.
+- `worker/index.ts` never contains product logic; the SPA talks only to `../backend` and Clerk.
 - No socket.io-client; all realtime through `RoomSocketContext`.
 - No cross entity component imports; promote to `common/` first.
-- No `VITE_*` variable read outside `src/api/` and `context/`.
+- No `VITE_*` variable read outside `src/api/`, `context/`, and `src/providers/`.
 - No new top level folders without updating this document.

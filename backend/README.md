@@ -88,3 +88,9 @@ npx wrangler tail
 - [Vite Documentation](https://vitejs.dev/guide/)
 - [React Documentation](https://reactjs.org/)
 - [Hono Documentation](https://hono.dev/)
+
+## Auth and database setup
+
+- Local secrets live in `.dev.vars`: `GEMINI_API_KEY`, `CLERK_SECRET_KEY`, `CLERK_PUBLISHABLE_KEY`.
+- Production secret: `bun wrangler secret put CLERK_SECRET_KEY`. The publishable key is a non secret var in `wrangler.json`.
+- Migrations: `bun run db:generate` after schema changes, `bun run db:migrate:local` for dev, and `bun run db:migrate:remote` BEFORE `bun run deploy` whenever a release includes new tables or columns.

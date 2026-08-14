@@ -8,10 +8,15 @@ import { formatTimeAgo } from "@/utils";
 import { chatRoomRoute } from "@/constants/routes.constants";
 import type { IRoom } from "../room.interface";
 
-const RoomListItem = ({ room }: { room: IRoom }) => {
+const RoomListItem = ({ room, myUserId }: { room: IRoom; myUserId?: string }) => {
   const name = room.otherUser.displayName ?? room.otherUser.username ?? "User";
-  const preview = room.lastMessage
-    ? room.lastMessage.originalText
+  const lastMessage = room.lastMessage;
+  const preview = lastMessage
+    ? lastMessage.senderId !== myUserId &&
+      lastMessage.translationStatus === "done" &&
+      lastMessage.translatedText
+      ? lastMessage.translatedText
+      : lastMessage.originalText
     : "Start the conversation";
   return (
     <motion.div

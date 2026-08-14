@@ -1,5 +1,5 @@
 import { useCallback, useRef, useState } from "react";
-import { handleApiAction } from "@/utils";
+import { handleApiAction, notify } from "@/utils";
 import { useRoomSocket } from "@/context/RoomSocketContext";
 import { useRoomContext } from "@/files/room/room.context";
 import { useAuthContext } from "@/files/auth/auth.context";
@@ -33,7 +33,23 @@ const useMessage = () => {
 
   const send = useCallback(() => {
     const text = draft.trim();
-    if (!text || !activeRoomId || !profile) return;
+    if (!text) return;
+    if (!activeRoomId) {
+      notify({
+        type: "error",
+        message: "Open a conversation first",
+        description: "Pick a chat from the list, then send your message.",
+      });
+      return;
+    }
+    if (!profile) {
+      notify({
+        type: "error",
+        message: "Your profile is still loading",
+        description: "Give it a second and try again.",
+      });
+      return;
+    }
     const now = new Date().toISOString();
     const optimistic: IClientMessage = {
       id: `temp_${crypto.randomUUID()}`,

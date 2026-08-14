@@ -28,8 +28,6 @@ export class RoomEvents {
 	static connect(env: Env, roomId: string, request: Request, userId: string) {
 		const headers = new Headers(request.headers);
 		headers.set("X-Actor-User-Id", userId);
-		return this.stub(env, roomId).fetch(
-			new Request(request.url, { headers }),
-		);
+		return this.stub(env, roomId).fetch(new Request(request, { headers }));
 	}
 }

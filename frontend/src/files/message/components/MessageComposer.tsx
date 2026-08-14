@@ -41,7 +41,8 @@ const MessageComposer = ({
         placeholder="Write a message in your language"
         maxLength={MAX_MESSAGE_CHARS}
         rows={1}
-        className="max-h-32 min-h-11 flex-1 resize-none rounded-2xl"
+        aria-label="Message"
+        className="max-h-32 min-h-11 flex-1 resize-none rounded-2xl field-sizing-content"
       />
       <ButtonElement
         onClick={onSend}

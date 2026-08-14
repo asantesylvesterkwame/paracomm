@@ -49,8 +49,15 @@ const MessageBubble = ({
           onClick={
             isTranslated ? () => setShowOriginal((value) => !value) : undefined
           }
+          aria-expanded={isTranslated ? showOriginal : undefined}
         >
           {displayText}
+          {isTranslated && (
+            <Languages
+              aria-hidden
+              className="ml-1.5 inline size-3 align-[-0.125em] opacity-60"
+            />
+          )}
         </BubbleContent>
       </Bubble>
       {isTranslating && <SkeletonElement className="h-3 w-24 rounded-md" />}

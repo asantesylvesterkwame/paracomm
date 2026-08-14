@@ -72,6 +72,14 @@ export const RoomProvider = ({ children }: { children: ReactNode }) => {
     [],
   );
 
+  const addRoom = useCallback((room: IRoom) => {
+    setRooms((previous) =>
+      previous.some((item) => item.id === room.id)
+        ? previous
+        : [room, ...previous],
+    );
+  }, []);
+
   const value = useMemo<RoomContextType>(
     () => ({
       rooms,
@@ -79,10 +87,11 @@ export const RoomProvider = ({ children }: { children: ReactNode }) => {
       hasFetched,
       refetch,
       upsertRoom,
+      addRoom,
       activeRoomId,
       setActiveRoomId,
     }),
-    [rooms, isLoading, hasFetched, refetch, upsertRoom, activeRoomId],
+    [rooms, isLoading, hasFetched, refetch, upsertRoom, addRoom, activeRoomId],
   );
 
   return <RoomContext.Provider value={value}>{children}</RoomContext.Provider>;

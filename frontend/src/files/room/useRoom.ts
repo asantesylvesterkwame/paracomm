@@ -7,7 +7,7 @@ import { useRoomContext } from "./room.context";
 
 const useRoom = () => {
   const navigate = useNavigate();
-  const { refetch } = useRoomContext();
+  const { addRoom, refetch } = useRoomContext();
   const [isLoadingStartConversation, setIsLoadingStartConversation] =
     useState(false);
 
@@ -17,8 +17,9 @@ const useRoom = () => {
       onSuccess: (result) => {
         const room = result?.data?.room;
         if (!room) return;
-        void refetch();
+        addRoom(room);
         navigate(chatRoomRoute(room.id));
+        void refetch();
       },
       setLoading: setIsLoadingStartConversation,
       errorMessage: "We could not start that conversation",

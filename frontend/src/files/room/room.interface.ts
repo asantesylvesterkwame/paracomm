@@ -27,6 +27,7 @@ export interface RoomContextType {
   hasFetched: boolean;
   refetch: () => Promise<void>;
   upsertRoom: (roomId: string, changes: Partial<IRoom>) => void;
+  addRoom: (room: IRoom) => void;
   activeRoomId: string | null;
   setActiveRoomId: (roomId: string | null) => void;
 }

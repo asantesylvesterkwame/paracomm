@@ -8,6 +8,7 @@ import {
 } from "react";
 import { useAuth as useClerkAuth } from "@clerk/react";
 import { registerAuthTokenGetter } from "@/api";
+import { notify } from "@/utils";
 import { isClerkConfigured } from "@/providers/clerk-provider";
 import UserService from "@/files/user/user.service";
 import type { IUser } from "@/files/user/user.interface";
@@ -43,18 +44,32 @@ const ClerkAuthBridge = ({ children }: { children: ReactNode }) => {
 
   const refetchProfile = useCallback(async () => {
     setIsProfileLoading(true);
-    try {
-      const result = await UserService.getMe();
-      if (result?.data?.user) {
-        setProfile(result.data.user);
-        setIsProfileNew(Boolean(result.data.isNew));
+    let loaded = false;
+    for (let attempt = 0; attempt < 2 && !loaded; attempt += 1) {
+      try {
+        if (attempt > 0) {
+          await new Promise((resolve) => setTimeout(resolve, 2000));
+        }
+        const result = await UserService.getMe();
+        if (result?.data?.user) {
+          setProfile(result.data.user);
+          setIsProfileNew(Boolean(result.data.isNew));
+          loaded = true;
+        }
+      } catch {
+        loaded = false;
       }
-    } catch {
-      setProfile(null);
-    } finally {
-      setIsProfileLoading(false);
-      setHasFetched(true);
     }
+    if (!loaded) {
+      setProfile(null);
+      notify({
+        type: "error",
+        message: "We could not load your profile",
+        description: "Chat needs your profile. Refresh the page to try again.",
+      });
+    }
+    setIsProfileLoading(false);
+    setHasFetched(true);
   }, []);
 
   useEffect(() => {

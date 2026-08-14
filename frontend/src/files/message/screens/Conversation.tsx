@@ -1,6 +1,6 @@
 import { useEffect, useMemo } from "react";
 import { Link, useParams } from "react-router-dom";
-import { AnimatePresence, motion } from "motion/react";
+import { AnimatePresence, motion, useReducedMotion } from "motion/react";
 import { ArrowLeft, MessagesSquare } from "lucide-react";
 import {
   MessageScrollerProvider,
@@ -13,13 +13,14 @@ import {
 import AvatarElement from "@/components/elements/AvatarElement";
 import BadgeElement from "@/components/elements/BadgeElement";
 import ButtonElement from "@/components/elements/ButtonElement";
-import LoadingElement from "@/components/elements/LoadingElement";
+import SkeletonElement from "@/components/elements/SkeletonElement";
 import EmptyState from "@/components/common/EmptyState";
 import { SPRING } from "@/lib/motion";
 import { ROUTES } from "@/constants/routes.constants";
 import { languageLabelOf } from "@/constants/languages.constants";
 import { useAuthContext } from "@/files/auth/auth.context";
 import { useRoomContext } from "@/files/room/room.context";
+import { useRoomSocket } from "@/context/RoomSocketContext";
 import { useMessageContext } from "../message.context";
 import useMessage from "../useMessage";
 import MessageBubble from "../components/MessageBubble";
@@ -28,8 +29,10 @@ import TypingIndicator from "../components/TypingIndicator";
 
 const Conversation = () => {
   const { roomId } = useParams();
+  const reduceMotion = useReducedMotion();
   const { profile } = useAuthContext();
   const { rooms, setActiveRoomId } = useRoomContext();
+  const { isSocketConnected } = useRoomSocket();
   const {
     messages,
     isLoading,
@@ -105,11 +108,37 @@ const Conversation = () => {
             </span>
           )}
         </div>
-        {room && (
-          <BadgeElement variant="secondary" className="ml-auto">
-            Auto translated
-          </BadgeElement>
-        )}
+        <span className="ml-auto flex items-center gap-2">
+          <motion.span
+            layout
+            transition={SPRING.card}
+            className="flex items-center gap-1.5 rounded-full bg-secondary px-2.5 py-1 text-[11px] font-medium text-muted-foreground"
+          >
+            <motion.span
+              animate={
+                isSocketConnected || reduceMotion
+                  ? { scale: 1, opacity: 1 }
+                  : { scale: [1, 1.4, 1], opacity: [1, 0.4, 1] }
+              }
+              transition={
+                isSocketConnected || reduceMotion
+                  ? SPRING.card
+                  : { duration: 1.2, repeat: Infinity }
+              }
+              className={
+                isSocketConnected
+                  ? "size-2 rounded-full bg-primary"
+                  : "size-2 rounded-full bg-muted-foreground/60"
+              }
+            />
+            {isSocketConnected ? "Live" : "Connecting"}
+          </motion.span>
+          {room && (
+            <BadgeElement variant="secondary" className="hidden sm:inline-flex">
+              Auto translated
+            </BadgeElement>
+          )}
+        </span>
       </header>
 
       <MessageScrollerProvider>
@@ -130,8 +159,18 @@ const Conversation = () => {
                 </div>
               )}
               {isLoading && !hasFetched && (
-                <div className="flex flex-1 items-center justify-center py-16">
-                  <LoadingElement />
+                <div className="flex flex-col gap-3 py-4">
+                  {[
+                    "w-48 self-start",
+                    "w-56 self-end",
+                    "w-36 self-start",
+                    "w-52 self-end",
+                  ].map((shape) => (
+                    <SkeletonElement
+                      key={shape}
+                      className={`h-10 rounded-3xl ${shape}`}
+                    />
+                  ))}
                 </div>
               )}
               {hasFetched && messages.length === 0 && (

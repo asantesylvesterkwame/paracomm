@@ -1,4 +1,4 @@
-import { Link, Outlet, useParams } from "react-router-dom";
+import { Link, Outlet, useMatch } from "react-router-dom";
 import { AnimatePresence, motion } from "motion/react";
 import { ArrowLeft, MessagesSquare } from "lucide-react";
 import Logo from "@/components/common/Logo";
@@ -9,13 +9,15 @@ import SkeletonElement from "@/components/elements/SkeletonElement";
 import { SPRING, staggerParent } from "@/lib/motion";
 import { cn } from "@/lib/utils";
 import { ROUTES } from "@/constants/routes.constants";
+import { useAuthContext } from "@/files/auth/auth.context";
 import { useRoomContext } from "../room.context";
 import RoomListItem from "../components/RoomListItem";
 import NewChatButton from "../components/NewChatButton";
 import ChatSettingsSheet from "../components/ChatSettingsSheet";
 
 const Chat = () => {
-  const { roomId } = useParams();
+  const roomId = useMatch(ROUTES.CHAT_ROOM)?.params.roomId;
+  const { profile } = useAuthContext();
   const { rooms, isLoading, hasFetched } = useRoomContext();
   const hasOpenRoom = Boolean(roomId);
 
@@ -71,7 +73,7 @@ const Chat = () => {
               className="flex flex-col gap-1"
             >
               {rooms.map((room) => (
-                <RoomListItem key={room.id} room={room} />
+                <RoomListItem key={room.id} room={room} myUserId={profile?.id} />
               ))}
             </motion.div>
           </ScrollAreaElement>

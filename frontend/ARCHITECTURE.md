@@ -18,7 +18,7 @@ The one sentence version: **routes are thin, entities own everything about thems
 | HTTP | axios | same |
 | Realtime | socket.io-client | native WebSocket to the backend RoomDO |
 | Toast | sonner via `notify` | same |
-| Storage | react-secure-storage + idb-keyval | same |
+| Storage | react-secure-storage + idb-keyval | `utils/cacheStore.ts` over idb-keyval (section 8.1) |
 | Theme | next-themes | `providers/theme-provider.tsx` (class on `<html>`, system aware, same consumer API) |
 | Env | `process.env.NEXT_PUBLIC_*` | `import.meta.env.VITE_*` |
 
@@ -50,10 +50,10 @@ frontend/
     context/              GLOBAL cross cutting contexts only (RoomSocketContext)
     providers/            theme-provider, motion-provider
     api/                  axios instances + interceptors. The only place base URLs exist.
-    hooks/                global generic hooks (use-mobile, useOrigin)
+    hooks/                global generic hooks (use-mobile, useCachedState, useOnlineStatus)
     interfaces/           shared component prop interfaces (interfaces/components/...)
     constants/            routes.constants.ts, api.constants.ts, styleGuide.ts
-    utils/                handleApiAction, handleError, notify, SecureStoreService, formatters
+    utils/                handleApiAction, handleError, notify, cacheStore, formatters
     lib/                  utils.ts (cn), motion.ts
     assets/               fonts, images
     index.css             Tailwind v4 config-in-CSS: tokens, dark block, typography utilities
@@ -156,9 +156,9 @@ ThemeProvider → RoomSocketProvider → AuthProvider → GuestProvider → Room
 
 ## 6. The Pipeline: `utils/index.ts`
 
-`handleApiAction`, `handleError`, `notify`, `SecureStoreService`, and the formatters port from `corpland-web/utils/index.ts` with their exact APIs — hooks written against corpland-web work here unchanged. Two known quirks are fixed in the ported copy, without changing the signature: the duplicated `setLoading(false)` in catch+finally collapses into finally alone, and `onSuccess` is invoked outside the try so a rendering bug in a success handler is never toasted as an API failure. The built-in "Try Again" toast action stays.
+`handleApiAction`, `handleError`, `notify`, and the formatters port from `corpland-web/utils/index.ts` with their exact APIs — hooks written against corpland-web work here unchanged. Two known quirks are fixed in the ported copy, without changing the signature: the duplicated `setLoading(false)` in catch+finally collapses into finally alone, and `onSuccess` is invoked outside the try so a rendering bug in a success handler is never toasted as an API failure. The built-in "Try Again" toast action stays.
 
-Hard rules unchanged: no bare try/catch around service calls in hooks, no direct toast library imports (`notify` only), no direct `localStorage` (`SecureStoreService` only).
+Hard rules unchanged: no bare try/catch around service calls in hooks, no direct toast library imports (`notify` only), no direct `localStorage` or `idb-keyval` (`cacheStore` only).
 
 ---
 
@@ -183,7 +183,17 @@ The backend's realtime is a Durable Object per room speaking native WebSocket (`
 - Wire format is the backend event envelope `{ event, payload }`; the provider parses once and re-emits through a tiny local emitter so entity contexts subscribe with the same `on/off` idiom used in `order.context.tsx`.
 - Event names come from `files/message/message.constants.ts` and match the backend contract exactly: `message:new`, `message:updated`, `message:deleted`, `message:seen`, `message:reaction`, `room:updated`, `typing:start`, `typing:stop`.
 
-The optimistic send pattern is law on realtime surfaces, spec'd by cubbicles-mobile and Architecture-web.md section 7: insert with a `temp_` id and `status: "sending"`, reconcile via `upsertMessage` when the server echo arrives, never let a refetch wipe unsent optimistic items. Translation arrival is just `message:updated` upserting the `translations` map, which the MessageBubble swaps in with a shimmer.
+The optimistic send pattern is law on realtime surfaces, spec'd by cubbicles-mobile and Architecture-web.md section 7: insert with a `temp_` id and `clientStatus: "sending"`, reconcile when the server copy arrives, never let a refetch wipe unsent optimistic items. Translation arrival is just `message:updated`, which the MessageBubble crossfades in behind a `ShimmerTextElement`.
+
+Reconciliation is exact, not heuristic. Every optimistic message carries a `clientId` uuid (its temp id is `temp_${clientId}`) which is sent with the POST and echoed back on the server row. `reconcileMessage` in `message.context.tsx` drops the pending copy whose `clientId` matches, so whichever arrives first, the socket echo or the POST response, produces exactly one bubble; the other is a no-op. The same `clientId` makes a retry idempotent server side, so a resend after a lost response can never create a second message. `classifySendError` tags a failure `network`, `rate` or `fatal`; only `network` failures are auto flushed by `flushQueue`, on browser `online` and on socket reconnect, oldest first, through a per room promise chain that preserves order. The composer is never disabled while a send is in flight.
+
+`RoomSocketContext` exposes `connectionKey`, incremented on every successful open. A value above one means a **re**connect, which triggers a silent refetch of the active room and of the room list, so nothing that arrived during a drop is silently missed.
+
+### 8.1 Cache Layer
+
+`utils/cacheStore.ts` is the one storage seam: an in memory `Map` in front of IndexedDB (`idb-keyval`), namespaced and versioned by `constants/cache.constants.ts` and scoped by the signed in user's id, with debounced writes and every read wrapped so blocked storage degrades to no cache. `hooks/useCachedState.ts` is the reusable hydrate-and-persist hook; entity contexts never touch IndexedDB directly for whole-collection state.
+
+State is stale while revalidate everywhere: `room.context.tsx` keeps the room list and `message.context.tsx` keeps `byRoom[roomId]`, both hydrated from cache before the network answers. Switching rooms never clears state, and a skeleton renders only when a collection is hydrated, unfetched and genuinely empty (`isSkeletonVisible`). `activeRoomId` is derived from the router inside `RoomProvider` (`useMatch(ROUTES.CHAT_ROOM)`), never pushed in from a screen, so it is correct on the same render as the navigation; screens read their own room through `useRoomMessages(roomId)` rather than whatever room is currently active. Local optimism survives the background poll through `mergeRooms` and `mergeMessages`, which never drop a pending or failed item and never resurrect an unread badge for the room you are reading.
 
 ---
 
@@ -202,7 +212,7 @@ Unchanged four tier system, one way imports only: `components/ui/` → `componen
 
 - `src/index.css` is the whole Tailwind v4 config, structured exactly like `corpland-web/app/globals.css`: `@import "tailwindcss"`, `@custom-variant dark`, `@theme inline` mapping, `:root`/`.dark` token blocks, typography utilities (`.text-display`, `.text-hero`, `.text-headline`, `.text-eyebrow`), spring easing utilities, and a global `prefers-reduced-motion` block. Tokens get this product's palette, but the token NAMES and structure match corpland-web so components port both ways.
 - Fonts: Inter variable via `@font-face` in `index.css` onto `--font-sans` (replacing `next/font/local`).
-- Dark mode: class strategy on `<html>`, system aware, persisted through `SecureStoreService`; consumers use the same `useTheme()` API shape as next-themes.
+- Dark mode: class strategy on `<html>`, system aware, persisted synchronously in `localStorage` by `providers/theme-provider.tsx` (the one place that is allowed to, since the theme must resolve before first paint); consumers use the same `useTheme()` API shape as next-themes.
 - Motion: `lib/motion.ts` copied verbatim from corpland-web (`SPRING.card/panel/snappy/press`, `fadeUp`, `fadeScale`, `staggerParent`, `TAP`, `HOVER_LIFT`). No inline one off transition objects in feature code. Page transitions (section 4) and component enter/exit (`AnimatePresence`) are required and must be visibly springy.
 - The `/styles` page is mandatory and is the design system source of truth, built the corpland-web way: content as data in `constants/styleGuide.ts`, rendered by `components/styles/` blocks, listed in `BARE_ROUTES` so it renders without app chrome. `DESIGN.md` documents the tokens.
 - Every screen is responsive from 360px to desktop; Tailwind breakpoints, no fixed pixel layouts.
@@ -255,7 +265,7 @@ Known corpland-web gaps fixed at the start, not inherited: missing 401 intercept
 
 ## 14. Hard Rules
 
-All eleven hard rules of Architecture-web.md section 11 apply verbatim, with these renames: `app/` route files → `src/app/` route files; axios lives only in `src/api/`; storage/toast only via `SecureStoreService`/`notify`; no `components/ui/` imports, hardcoded tokens, or inline transitions in feature code. Additions for this repo:
+All eleven hard rules of Architecture-web.md section 11 apply verbatim, with these renames: `app/` route files → `src/app/` route files; axios lives only in `src/api/`; storage/toast only via `cacheStore`/`notify`; no `components/ui/` imports, hardcoded tokens, or inline transitions in feature code. Additions for this repo:
 
 - `worker/index.ts` never contains product logic; the SPA talks only to `../backend` and Clerk.
 - No socket.io-client; all realtime through `RoomSocketContext`.

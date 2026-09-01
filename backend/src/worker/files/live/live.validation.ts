@@ -3,7 +3,7 @@ import {
 	INPUT_LANGUAGE_CODES,
 	OUTPUT_LANGUAGE_CODES,
 	MAX_UTTERANCE_CHARS,
-} from "./live.constants";
+} from "../../constants/languages";
 
 export const translateLive = z.object({
 	text: z.string().trim().min(1).max(MAX_UTTERANCE_CHARS),

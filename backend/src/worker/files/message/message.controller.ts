@@ -12,19 +12,19 @@ import type {
 
 type SendMessageContext = Context<
 	AppEnv,
-	string,
+	"/:roomId/messages",
 	{ in: { json: ISendMessageBody }; out: { json: ISendMessageBody } }
 >;
 
 type ListMessagesContext = Context<
 	AppEnv,
-	string,
+	"/:roomId/messages",
 	{ in: { query: IListMessagesQuery }; out: { query: IListMessagesQuery } }
 >;
 
 type MarkSeenContext = Context<
 	AppEnv,
-	string,
+	"/:roomId/seen",
 	{ in: { json: IMarkSeenBody }; out: { json: IMarkSeenBody } }
 >;
 
@@ -92,7 +92,9 @@ export const markSeenController = async (c: MarkSeenContext) => {
 	});
 };
 
-export const retryTranslationController = async (c: Context<AppEnv>) => {
+export const retryTranslationController = async (
+	c: Context<AppEnv, "/:roomId/messages/:messageId/translation">,
+) => {
 	const actor = c.get("actor");
 	const result = await MessageService.retryTranslation(
 		c.env,

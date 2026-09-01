@@ -3,7 +3,9 @@
   "name": "paracomm-backend",
   "main": "./src/worker/index.ts",
   "compatibility_date": "2025-10-08",
-  "compatibility_flags": ["nodejs_compat"],
+  "compatibility_flags": [
+    "nodejs_compat"
+  ],
   "observability": {
     "enabled": true
   },
@@ -20,13 +22,25 @@
       {
         "name": "ROOM_DO",
         "class_name": "RoomDO"
+      },
+      {
+        "name": "USER_DO",
+        "class_name": "UserDO"
       }
     ]
   },
   "migrations": [
     {
       "tag": "v1",
-      "new_sqlite_classes": ["RoomDO"]
+      "new_sqlite_classes": [
+        "RoomDO"
+      ]
+    },
+    {
+      "tag": "v2",
+      "new_sqlite_classes": [
+        "UserDO"
+      ]
     }
   ],
   "d1_databases": [
@@ -45,6 +59,14 @@
         "limit": 20,
         "period": 60
       }
+    },
+    {
+      "name": "CAPTION_RPM",
+      "namespace_id": "1002",
+      "simple": {
+        "limit": 90,
+        "period": 60
+      }
     }
   ],
   "vars": {
@@ -55,5 +77,10 @@
     "TTS_MODEL": "gemini-3.1-flash-tts-preview",
     "TTS_VOICE": "Kore",
     "CORS_ORIGINS": "http://localhost:5173,https://paracomm.intelligentson17.workers.dev"
+  },
+  "triggers": {
+    "crons": [
+      "*/1 * * * *"
+    ]
   }
 }

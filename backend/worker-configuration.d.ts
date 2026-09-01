@@ -4,12 +4,13 @@
 declare namespace Cloudflare {
 	interface GlobalProps {
 		mainModule: typeof import("./src/worker/index");
-		durableNamespaces: "RoomDO";
+		durableNamespaces: "RoomDO" | "UserDO";
 	}
 	interface Env {
 		LIVE_QUOTA: KVNamespace;
 		DB: D1Database;
 		LIVE_RPM: RateLimit;
+		CAPTION_RPM: RateLimit;
 		CHAT_DAILY_CHAR_BUDGET: "20000";
 		DAILY_CHAR_BUDGET: "15000";
 		TRANSLATION_MODEL: "gemini-3.6-flash";
@@ -17,9 +18,11 @@ declare namespace Cloudflare {
 		TTS_VOICE: "Kore";
 		CORS_ORIGINS: "http://localhost:5173,https://paracomm.intelligentson17.workers.dev";
 		GEMINI_API_KEY: string;
+		DAILY_API_KEY: string;
 		CLERK_SECRET_KEY: string;
 		CLERK_PUBLISHABLE_KEY: string;
 		ROOM_DO: DurableObjectNamespace<import("./src/worker/index").RoomDO>;
+		USER_DO: DurableObjectNamespace<import("./src/worker/index").UserDO>;
 	}
 }
 interface Env extends Cloudflare.Env {}
@@ -27,7 +30,7 @@ type StringifyValues<EnvType extends Record<string, unknown>> = {
 	[Binding in keyof EnvType]: EnvType[Binding] extends string ? EnvType[Binding] : string;
 };
 declare namespace NodeJS {
-	interface ProcessEnv extends StringifyValues<Pick<Cloudflare.Env, "CHAT_DAILY_CHAR_BUDGET" | "DAILY_CHAR_BUDGET" | "TRANSLATION_MODEL" | "TTS_MODEL" | "TTS_VOICE" | "CORS_ORIGINS" | "GEMINI_API_KEY" | "CLERK_SECRET_KEY" | "CLERK_PUBLISHABLE_KEY">> {}
+	interface ProcessEnv extends StringifyValues<Pick<Cloudflare.Env, "CHAT_DAILY_CHAR_BUDGET" | "DAILY_CHAR_BUDGET" | "TRANSLATION_MODEL" | "TTS_MODEL" | "TTS_VOICE" | "CORS_ORIGINS" | "GEMINI_API_KEY" | "DAILY_API_KEY" | "CLERK_SECRET_KEY" | "CLERK_PUBLISHABLE_KEY">> {}
 }
 
 // Begin runtime types

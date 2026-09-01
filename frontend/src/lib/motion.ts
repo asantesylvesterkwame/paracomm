@@ -10,6 +10,8 @@ export const SPRING = {
 
 export const FADE: Transition = { duration: 0.2 };
 
+export const EXIT_FAST: Transition = { duration: 0.12, ease: "easeOut" };
+
 export const LANDING_EASE: Transition = {
   duration: 0.6,
   ease: [0.22, 1, 0.36, 1],

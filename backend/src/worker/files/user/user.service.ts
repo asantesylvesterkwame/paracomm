@@ -1,12 +1,22 @@
-import type { ClerkClient } from "@clerk/backend";
 import UserRepository from "./user.repository";
 import { userMessages } from "./user.messages";
 import { decodeCursor, encodeCursor } from "../../utils/pagination";
 import type { IActor } from "../../utils/auth";
 import type { IUpdateMeBody, ISearchUsersQuery } from "./user.validation";
 
+interface IClerkUserReader {
+	users: {
+		getUser(userId: string): Promise<{
+			username: string | null;
+			firstName: string | null;
+			lastName: string | null;
+			imageUrl: string;
+		}>;
+	};
+}
+
 class UserService {
-	static async getMe(env: Env, actor: IActor, clerk: ClerkClient) {
+	static async getMe(env: Env, actor: IActor, clerk: IClerkUserReader) {
 		const existing = await UserRepository.fetchOneByClerkId(
 			env,
 			actor.clerkId,
@@ -100,6 +110,18 @@ class UserService {
 				nextCursor: last ? encodeCursor(last.createdAt.getTime(), last.id) : null,
 			},
 			count: items.length,
+		};
+	}
+
+	static async authorizeSocket(env: Env, clerkId: string) {
+		const me = await UserRepository.fetchOneByClerkId(env, clerkId);
+		if (!me) {
+			return { success: false as const, message: userMessages.PROFILE_MISSING };
+		}
+		return {
+			success: true as const,
+			message: userMessages.PROFILE_FETCHED,
+			data: { userId: me.id },
 		};
 	}
 }

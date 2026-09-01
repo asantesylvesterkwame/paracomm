@@ -252,6 +252,8 @@ The replacement:
 - `typing` is a validated, fixed-shape event relayed only to the sender's room — the arbitrary `data.eventName` relay is banned.
 - All emission goes through one choke point, `utils/roomEvents.ts` (`RoomEvents.emit(env, roomId, event, payload)`), which resolves the DO stub and calls its broadcast method — the same single-seam role `SocketClient.send` plays in cubbicles services, minus the double emit.
 - Room member list updates (the `cubbicle:user:all:<userId>` fan-out) are replaced by a slim `room:updated` event carrying only the changed room summary. No per-member full list re-queries, ever.
+- Every socket in a room receives `message:new`, including the sender's own. Senders reconcile their optimistic copy through `clientId`: `POST /rooms/:roomId/messages` accepts an optional client generated uuid, stores it on the row (`messages.client_id`, nullable, partial unique index on `(room_id, client_id)`), and echoes it back on every payload. `sendMessage` returns the existing row when that `clientId` is already stored, so a retried send after a lost response is idempotent and can never create a second message. Clients that send no `clientId` keep the previous behaviour.
+- The room list payload carries `otherLastSeenMessageId` and `otherLastSeenAt` from the other member's `room_members` row, so read receipts survive a page reload instead of existing only for the lifetime of a socket connection.
 
 ---
 

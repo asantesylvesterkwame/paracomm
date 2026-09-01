@@ -1,7 +1,12 @@
 import { drizzle } from "drizzle-orm/d1";
 import { alias } from "drizzle-orm/sqlite-core";
 import { and, eq, ne, desc, gt, sql } from "drizzle-orm";
-import { rooms, roomMembers, type IRoomRow } from "./room.model";
+import {
+	rooms,
+	roomMembers,
+	type IRoomRow,
+	type IRoomMemberRow,
+} from "./room.model";
 import { users, type IUser } from "../user/user.model";
 import { messages, type IMessageRow } from "../message/message.model";
 import { PAGE_LENGTH } from "../../constants";
@@ -10,6 +15,7 @@ import type { ICursor } from "../../utils/pagination";
 export interface IRoomListRow {
 	room: IRoomRow;
 	otherUser: IUser;
+	otherMember: IRoomMemberRow;
 	lastMessage: IMessageRow | null;
 	unreadCount: number;
 }
@@ -109,6 +115,7 @@ class RoomRepository {
 			.select({
 				room: rooms,
 				member: roomMembers,
+				otherMember: other,
 				otherUser: users,
 			})
 			.from(rooms)
@@ -163,6 +170,7 @@ class RoomRepository {
 			return {
 				room: row.room,
 				otherUser: row.otherUser,
+				otherMember: row.otherMember,
 				lastMessage: lastMessageRows[0] ?? null,
 				unreadCount: unreadRows[0]?.total ?? 0,
 			};

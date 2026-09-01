@@ -8,19 +8,20 @@ import useRoom from "../useRoom";
 const NewChatButton = () => {
   const [open, setOpen] = useState(false);
   const { query, setQuery, results, isLoadingSearch } = useUserSearch();
-  const { startConversation, isLoadingStartConversation } = useRoom();
+  const { startConversation } = useRoom();
 
   const handleSelect = (userId: string) => {
+    const user = results.find((item) => item.id === userId);
+    if (!user) return;
     setOpen(false);
     setQuery("");
-    startConversation(userId);
+    startConversation(user);
   };
 
   return (
     <>
       <ButtonElement
         onClick={() => setOpen(true)}
-        isLoading={isLoadingStartConversation}
         size="sm"
         className="h-9 gap-2 rounded-xl px-3"
       >

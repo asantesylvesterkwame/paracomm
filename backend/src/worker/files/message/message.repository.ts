@@ -1,5 +1,5 @@
 import { drizzle } from "drizzle-orm/d1";
-import { and, eq, lt, or, desc } from "drizzle-orm";
+import { and, eq, lt, or, desc, type SQL } from "drizzle-orm";
 import {
 	messages,
 	type IMessageRow,
@@ -37,6 +37,21 @@ class MessageRepository {
 		return rows[0] ?? null;
 	}
 
+	static async fetchByClientId(
+		env: Env,
+		roomId: string,
+		clientId: string,
+	): Promise<IMessageRow | null> {
+		const rows = await this.db(env)
+			.select()
+			.from(messages)
+			.where(
+				and(eq(messages.roomId, roomId), eq(messages.clientId, clientId)),
+			)
+			.limit(1);
+		return rows[0] ?? null;
+	}
+
 	static async update(
 		env: Env,
 		messageId: string,
@@ -67,7 +82,7 @@ class MessageRepository {
 						eq(messages.createdAt, new Date(cursor.createdAtMs)),
 						lt(messages.id, cursor.id),
 					),
-				),
+				) as SQL,
 			);
 		}
 		return this.db(env)

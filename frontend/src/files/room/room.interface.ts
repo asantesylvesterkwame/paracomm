@@ -7,8 +7,11 @@ export interface IRoom {
   otherUser: IUser;
   lastMessage: IMessage | null;
   unreadCount: number;
+  otherLastSeenMessageId: string | null;
+  otherLastSeenAt: string | null;
   lastMessageAt: string | null;
   createdAt: string;
+  isPending?: boolean;
 }
 
 export interface IRoomListData {
@@ -25,9 +28,12 @@ export interface RoomContextType {
   rooms: IRoom[];
   isLoading: boolean;
   hasFetched: boolean;
+  isHydrated: boolean;
+  isSkeletonVisible: boolean;
+  activeRoomId: string | null;
   refetch: () => Promise<void>;
   upsertRoom: (roomId: string, changes: Partial<IRoom>) => void;
   addRoom: (room: IRoom) => void;
-  activeRoomId: string | null;
-  setActiveRoomId: (roomId: string | null) => void;
+  addPendingRoom: (user: IUser) => string;
+  resolvePendingRoom: (pendingId: string, room: IRoom | null) => void;
 }

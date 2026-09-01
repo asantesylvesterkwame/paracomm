@@ -32,6 +32,20 @@ class MessageService {
 		if (!me) {
 			return { success: false as const, message: userMessages.PROFILE_MISSING };
 		}
+		if (body.clientId) {
+			const existing = await MessageRepository.fetchByClientId(
+				env,
+				roomId,
+				body.clientId,
+			);
+			if (existing) {
+				return {
+					success: true as const,
+					message: messageMessages.MESSAGE_SENT,
+					data: existing,
+				};
+			}
+		}
 		const withinRate = await checkMinuteLimit(env, `user:${me.id}`);
 		if (!withinRate) {
 			return {
@@ -49,16 +63,30 @@ class MessageService {
 		const skipTranslation =
 			normalizeLang(me.preferredLang) === normalizeLang(recipient.preferredLang);
 		const now = new Date();
-		const message = await MessageRepository.create(env, {
-			id: crypto.randomUUID(),
-			roomId,
-			senderId: me.id,
-			originalText: body.text,
-			originalLang: me.preferredLang,
-			translationStatus: skipTranslation ? "none" : "pending",
-			createdAt: now,
-			updatedAt: now,
-		});
+		let message: IMessageRow;
+		try {
+			message = await MessageRepository.create(env, {
+				id: crypto.randomUUID(),
+				roomId,
+				clientId: body.clientId ?? null,
+				senderId: me.id,
+				originalText: body.text,
+				originalLang: me.preferredLang,
+				translationStatus: skipTranslation ? "none" : "pending",
+				createdAt: now,
+				updatedAt: now,
+			});
+		} catch (error) {
+			const raced = body.clientId
+				? await MessageRepository.fetchByClientId(env, roomId, body.clientId)
+				: null;
+			if (!raced) throw error;
+			return {
+				success: true as const,
+				message: messageMessages.MESSAGE_SENT,
+				data: raced,
+			};
+		}
 		await RoomRepository.touchLastMessageAt(env, roomId, now);
 		await RoomEvents.emit(env, roomId, "message:new", message);
 		if (!skipTranslation) {

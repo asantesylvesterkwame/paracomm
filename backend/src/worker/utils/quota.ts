@@ -29,6 +29,16 @@ export const checkMinuteLimit = async (env: Env, ipHash: string) => {
 	}
 };
 
+export const checkCaptionMinuteLimit = async (env: Env, key: string) => {
+	try {
+		const { success } = await env.CAPTION_RPM.limit({ key });
+		return success;
+	} catch (error) {
+		console.warn("caption rate limit binding unavailable, failing open", error);
+		return true;
+	}
+};
+
 export const checkAndConsumeDailyChars = async (
 	env: Env,
 	ipHash: string,

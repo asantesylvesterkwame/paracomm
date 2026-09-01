@@ -1,5 +1,5 @@
 import type { ITranslationProvider } from "./translation.provider";
-import { buildTranslationPrompt } from "../../files/live/live.utils";
+import { buildCaptionPrompt, buildTranslationPrompt } from "./translation.utils";
 
 interface IGeminiResponse {
 	candidates?: { content?: { parts?: { text?: string }[] } }[];
@@ -8,7 +8,9 @@ interface IGeminiResponse {
 
 export const GeminiProvider: ITranslationProvider = {
 	name: "gemini",
-	async translate(env, text, sourceLang, targetLang) {
+	async translate(env, text, sourceLang, targetLang, options) {
+		const buildPrompt =
+			options?.mode === "caption" ? buildCaptionPrompt : buildTranslationPrompt;
 		const response = await fetch(
 			`https://generativelanguage.googleapis.com/v1beta/models/${env.TRANSLATION_MODEL}:generateContent`,
 			{
@@ -19,7 +21,7 @@ export const GeminiProvider: ITranslationProvider = {
 				},
 				body: JSON.stringify({
 					system_instruction: {
-						parts: [{ text: buildTranslationPrompt(sourceLang, targetLang) }],
+						parts: [{ text: buildPrompt(sourceLang, targetLang) }],
 					},
 					contents: [{ role: "user", parts: [{ text }] }],
 					generationConfig: {

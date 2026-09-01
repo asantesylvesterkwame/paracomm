@@ -2,6 +2,7 @@ import { z } from "zod";
 
 export const sendMessage = z.object({
 	text: z.string().trim().min(1).max(2000),
+	clientId: z.string().uuid().optional(),
 });
 
 export type ISendMessageBody = z.infer<typeof sendMessage>;

@@ -15,33 +15,45 @@ import BadgeElement from "@/components/elements/BadgeElement";
 import ButtonElement from "@/components/elements/ButtonElement";
 import SkeletonElement from "@/components/elements/SkeletonElement";
 import EmptyState from "@/components/common/EmptyState";
-import { SPRING } from "@/lib/motion";
+import ConnectionBanner from "@/components/common/ConnectionBanner";
+import CallButton from "@/components/common/CallButton";
+import { EXIT_FAST, SPRING } from "@/lib/motion";
 import { ROUTES } from "@/constants/routes.constants";
 import { languageLabelOf } from "@/constants/languages.constants";
 import { useAuthContext } from "@/files/auth/auth.context";
-import { useRoomContext } from "@/files/room/room.context";
 import { useRoomSocket } from "@/context/RoomSocketContext";
-import { useMessageContext } from "../message.context";
+import useRoomMessages from "../hooks/useRoomMessages";
 import useMessage from "../useMessage";
+import { isSeenMessage } from "../message.utils";
 import MessageBubble from "../components/MessageBubble";
 import MessageComposer from "../components/MessageComposer";
 import TypingIndicator from "../components/TypingIndicator";
+
+const SKELETON_SHAPES = [
+  "w-48 self-start",
+  "w-56 self-end",
+  "w-36 self-start",
+  "w-52 self-end",
+];
 
 const Conversation = () => {
   const { roomId } = useParams();
   const reduceMotion = useReducedMotion();
   const { profile } = useAuthContext();
-  const { rooms, setActiveRoomId } = useRoomContext();
   const { isSocketConnected } = useRoomSocket();
   const {
-    messages,
-    isLoading,
-    hasFetched,
+    items,
+    room,
+    seen,
     isLoadingMore,
     nextCursor,
     typingUserIds,
+    isSkeletonVisible,
+    hasFetched,
+    pendingCount,
+    failedCount,
     loadOlder,
-  } = useMessageContext();
+  } = useRoomMessages(roomId);
   const {
     draft,
     setDraft,
@@ -51,25 +63,14 @@ const Conversation = () => {
     markSeen,
     emitTyping,
     stopTyping,
-    isSending,
-  } = useMessage();
-
-  const room = useMemo(
-    () => rooms.find((item) => item.id === roomId) ?? null,
-    [rooms, roomId],
-  );
-
-  useEffect(() => {
-    setActiveRoomId(roomId ?? null);
-    return () => setActiveRoomId(null);
-  }, [roomId, setActiveRoomId]);
+  } = useMessage(roomId);
 
   const latestIncoming = useMemo(
     () =>
-      [...messages]
+      [...items]
         .reverse()
         .find((item) => item.senderId !== profile?.id && !item.clientStatus),
-    [messages, profile?.id],
+    [items, profile?.id],
   );
 
   useEffect(() => {
@@ -80,7 +81,7 @@ const Conversation = () => {
     <motion.div
       initial={{ opacity: 0, x: 24 }}
       animate={{ opacity: 1, x: 0 }}
-      exit={{ opacity: 0, x: 24 }}
+      exit={{ opacity: 0, x: 24, transition: EXIT_FAST }}
       transition={SPRING.card}
       className="flex h-full min-h-0 flex-col"
     >
@@ -109,6 +110,7 @@ const Conversation = () => {
           )}
         </div>
         <span className="ml-auto flex items-center gap-2">
+          <CallButton roomId={roomId} />
           <motion.span
             layout
             transition={SPRING.card}
@@ -141,6 +143,11 @@ const Conversation = () => {
         </span>
       </header>
 
+      <ConnectionBanner
+        isSocketConnected={isSocketConnected}
+        queuedCount={pendingCount + failedCount}
+      />
+
       <MessageScrollerProvider>
         <MessageScroller className="flex-1">
           <MessageScrollerViewport>
@@ -158,14 +165,9 @@ const Conversation = () => {
                   </ButtonElement>
                 </div>
               )}
-              {isLoading && !hasFetched && (
+              {isSkeletonVisible && (
                 <div className="flex flex-col gap-3 py-4">
-                  {[
-                    "w-48 self-start",
-                    "w-56 self-end",
-                    "w-36 self-start",
-                    "w-52 self-end",
-                  ].map((shape) => (
+                  {SKELETON_SHAPES.map((shape) => (
                     <SkeletonElement
                       key={shape}
                       className={`h-10 rounded-3xl ${shape}`}
@@ -173,7 +175,7 @@ const Conversation = () => {
                   ))}
                 </div>
               )}
-              {hasFetched && messages.length === 0 && (
+              {hasFetched && items.length === 0 && (
                 <EmptyState
                   icon={MessagesSquare}
                   title="Say hello"
@@ -181,11 +183,16 @@ const Conversation = () => {
                   className="border-none bg-transparent py-16"
                 />
               )}
-              {messages.map((message) => (
+              {items.map((message) => (
                 <MessageScrollerItem key={message.id}>
                   <MessageBubble
                     message={message}
                     isOwn={message.senderId === profile?.id}
+                    isSeen={isSeenMessage(
+                      message,
+                      seen.lastSeenMessageId,
+                      seen.lastSeenAt,
+                    )}
                     onRetrySend={retrySend}
                     onRetryTranslation={retryTranslation}
                   />
@@ -214,7 +221,6 @@ const Conversation = () => {
         onSend={send}
         onTyping={emitTyping}
         onStopTyping={stopTyping}
-        isSending={isSending}
       />
     </motion.div>
   );

@@ -4,23 +4,26 @@ import { handleApiAction } from "@/utils";
 import { chatRoomRoute } from "@/constants/routes.constants";
 import RoomService from "./room.service";
 import { useRoomContext } from "./room.context";
+import type { IUser } from "@/files/user/user.interface";
 
 const useRoom = () => {
   const navigate = useNavigate();
-  const { addRoom, refetch } = useRoomContext();
+  const { addPendingRoom, resolvePendingRoom, refetch } = useRoomContext();
   const [isLoadingStartConversation, setIsLoadingStartConversation] =
     useState(false);
 
-  const startConversation = (otherUserId: string) => {
+  const startConversation = (user: IUser) => {
+    const pendingId = addPendingRoom(user);
     void handleApiAction({
-      action: () => RoomService.createDm(otherUserId),
+      action: () => RoomService.createDm(user.id),
       onSuccess: (result) => {
         const room = result?.data?.room;
+        resolvePendingRoom(pendingId, room ?? null);
         if (!room) return;
-        addRoom(room);
         navigate(chatRoomRoute(room.id));
         void refetch();
       },
+      onError: () => resolvePendingRoom(pendingId, null),
       setLoading: setIsLoadingStartConversation,
       errorMessage: "We could not start that conversation",
     });

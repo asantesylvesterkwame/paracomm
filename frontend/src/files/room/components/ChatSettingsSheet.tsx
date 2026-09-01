@@ -8,7 +8,7 @@ import { PREFERRED_LANGUAGES } from "@/constants/languages.constants";
 
 const ChatSettingsSheet = () => {
   const [open, setOpen] = useState(false);
-  const { profile, updatePreferredLang, isLoadingUpdateLang } = useAuth();
+  const { profile, updatePreferredLang } = useAuth();
 
   return (
     <>
@@ -17,7 +17,6 @@ const ChatSettingsSheet = () => {
         size="icon"
         aria-label="Chat settings"
         onClick={() => setOpen(true)}
-        isLoading={isLoadingUpdateLang}
         className="size-9 rounded-xl"
       >
         <Settings2 className="size-5" />
@@ -39,7 +38,6 @@ const ChatSettingsSheet = () => {
             }))}
             value={profile?.preferredLang}
             onValueChange={updatePreferredLang}
-            disabled={isLoadingUpdateLang}
           />
         </div>
       </SheetElement>

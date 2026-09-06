@@ -1,7 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { AnimatePresence, motion } from "motion/react";
 import {
-  DailyAudio,
   useAudioTrack,
   useDaily,
   useLocalSessionId,
@@ -12,7 +11,7 @@ import {
 import { Minimize2 } from "lucide-react";
 import ButtonElement from "@/components/elements/ButtonElement";
 import ShimmerTextElement from "@/components/elements/ShimmerTextElement";
-import { SPRING } from "@/lib/motion";
+import { FADE, SPRING } from "@/lib/motion";
 import { formatDuration } from "@/utils/text";
 import { languageLabelOf } from "@/constants/languages.constants";
 import { useAuthContext } from "@/files/auth/auth.context";
@@ -20,17 +19,22 @@ import { CALL_COPY } from "../call.constants";
 import useCallCaptions from "../useCallCaptions";
 import CallControls from "./CallControls";
 import CallPill from "./CallPill";
+import DubbingStatus from "./DubbingStatus";
 import SubtitleTrack from "./SubtitleTrack";
 import VideoTile from "./VideoTile";
 import type { IUser } from "@/files/user/user.interface";
+import type { IDubbingResult } from "../dubbing/dubbing.interface";
 
 interface CallStageProps {
   callId: string;
   otherUser: IUser;
   isMinimized: boolean;
   isCaptionsOn: boolean;
+  isDubbingOn: boolean;
+  dubbing: IDubbingResult;
   onMinimize: (value: boolean) => void;
   onToggleCaptions: (value: boolean) => void;
+  onToggleDubbing: (value: boolean) => void;
   onLeave: () => void;
 }
 
@@ -39,8 +43,11 @@ const CallStage = ({
   otherUser,
   isMinimized,
   isCaptionsOn,
+  isDubbingOn,
+  dubbing,
   onMinimize,
   onToggleCaptions,
+  onToggleDubbing,
   onLeave,
 }: CallStageProps) => {
   const daily = useDaily();
@@ -59,6 +66,10 @@ const CallStage = ({
   const isCameraOff = localVideo.isOff;
   const hasRemote = Boolean(remoteId);
 
+  const isDubbingActive =
+    dubbing.state === "listening" || dubbing.state === "speaking";
+  const myLang = profile?.preferredLang ?? "en";
+
   const otherName =
     otherUser.displayName ?? otherUser.username ?? "Your contact";
   const myName = profile?.displayName ?? profile?.username ?? "You";
@@ -73,6 +84,8 @@ const CallStage = ({
     isEnabled: isCaptionsOn && hasRemote,
     isMicMuted,
     otherUserLang: otherUser.preferredLang,
+    isDubbingActive,
+    isDubSpeaking: dubbing.isSpeaking,
   });
 
   useEffect(() => {
@@ -107,7 +120,6 @@ const CallStage = ({
           onExpand={() => onMinimize(false)}
           onLeave={onLeave}
         />
-        <DailyAudio />
       </div>
     );
   }
@@ -128,9 +140,9 @@ const CallStage = ({
           <span className="text-sm font-medium">{otherName}</span>
           <span className="text-xs text-muted-foreground tabular-nums">
             {languageLabelOf(otherUser.preferredLang)} to{" "}
-            {languageLabelOf(profile?.preferredLang ?? "en")} ·{" "}
-            {formatDuration(elapsedSeconds)}
+            {languageLabelOf(myLang)} · {formatDuration(elapsedSeconds)}
           </span>
+          <DubbingStatus state={dubbing.state} targetLang={myLang} />
         </span>
         <ButtonElement
           variant="ghost"
@@ -150,6 +162,19 @@ const CallStage = ({
         isMuted={hasRemote && remoteAudio.isOff}
         className="absolute inset-0 size-full"
       />
+
+      <AnimatePresence>
+        {dubbing.state === "speaking" && (
+          <motion.div
+            aria-hidden
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={FADE}
+            className="pointer-events-none absolute inset-0 z-10 ring-2 ring-primary/60 ring-inset"
+          />
+        )}
+      </AnimatePresence>
 
       <AnimatePresence>
         {statusLine && (
@@ -182,20 +207,24 @@ const CallStage = ({
           isEnabled={isCaptionsOn}
           isSupported={isCaptionsSupported}
           isMicMuted={isMicMuted}
+          isDubbingActive={isDubbingActive}
+          dubbing={dubbing}
+          myLang={myLang}
         />
         <CallControls
           isMicMuted={isMicMuted}
           isCameraOff={isCameraOff}
           isCaptionsOn={isCaptionsOn}
           isCaptionsSupported={isCaptionsSupported}
+          isDubbingOn={isDubbingOn}
+          dubbingUnavailableReason={dubbing.unavailableReason}
           onToggleMic={toggleMic}
           onToggleCamera={toggleCamera}
           onToggleCaptions={onToggleCaptions}
+          onToggleDubbing={onToggleDubbing}
           onLeave={onLeave}
         />
       </div>
-
-      <DailyAudio />
     </motion.div>
   );
 };

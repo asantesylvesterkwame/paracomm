@@ -52,3 +52,23 @@ export const OUTPUT_LANGUAGE_CODES = [
 ] as const;
 
 export const MAX_UTTERANCE_CHARS = 500;
+
+export const DUBBING_LANGUAGE_CODES = [
+	"en",
+	"es",
+	"fr",
+	"de",
+	"it",
+	"pt",
+	"nl",
+	"pl",
+	"ru",
+	"tr",
+	"sv",
+	"id",
+	"hi",
+	"ar",
+	"zh",
+	"ja",
+	"ko",
+] as const;

@@ -1,11 +1,12 @@
 import { Hono } from "hono";
 import { zValidator } from "@hono/zod-validator";
-import { endCall, translateCaption } from "./call.validation";
+import { endCall, translateCaption, startDubbing } from "./call.validation";
 import {
 	joinCallController,
 	declineCallController,
 	endCallController,
 	translateCaptionController,
+	startDubbingController,
 } from "./call.controller";
 import { isAuthenticated } from "../../utils/auth";
 import { validationHook } from "../../utils/validation";
@@ -29,6 +30,12 @@ callRoutes.post(
 	"/:callId/captions",
 	zValidator("json", translateCaption, validationHook),
 	translateCaptionController,
+);
+
+callRoutes.post(
+	"/:callId/dubbing",
+	zValidator("json", startDubbing, validationHook),
+	startDubbingController,
 );
 
 export default callRoutes;

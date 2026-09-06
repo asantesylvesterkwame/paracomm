@@ -14,6 +14,11 @@ export const callMessages = {
 	CAPTION_DAILY_LIMIT_REACHED: "Daily free translation limit reached",
 	CAPTION_PROVIDER_FAILED: "We could not translate that caption",
 	CALLS_FETCHED: "Calls fetched",
+	DUBBING_STARTED: "Voice translation ready",
+	DUBBING_NOT_CONFIGURED: "Voice translation is not configured on this server",
+	DUBBING_LIMIT_REACHED: "Too many voice sessions. Wait a moment",
+	DUBBING_DAILY_LIMIT_REACHED: "Daily voice translation limit reached",
+	DUBBING_PROVIDER_FAILED: "We could not start voice translation",
 } as const;
 
 export const callEntryCopy = {

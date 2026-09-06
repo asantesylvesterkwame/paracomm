@@ -80,6 +80,10 @@ src/files/<entity>/
   hooks/                   extra entity hooks
 ```
 
+An entity may carry a sub feature folder when a capability is large enough to own its own service, constants, interface and hook but is meaningless outside its parent. `files/call/dubbing/` is the reference case: it holds `dubbing.service.ts`, `dubbing.constants.ts`, `dubbing.interface.ts`, `dubbing.utils.ts` and `useLiveDubbing.ts`, and follows the same file naming as a top level entity. Its components still live in `files/call/components/`, because they render inside the call.
+
+`useLiveDubbing` streams the remote Daily audio track to Gemini Live Translate and plays the translated speech back. Two generic primitives underneath it live in `hooks/` because they are not call specific: `usePcmCapture` (a `MediaStreamTrack` to base64 16kHz PCM chunks, via `public/worklets/pcm-capture.worklet.js`) and `usePcmPlayer` (a gapless queue that schedules 24kHz PCM chunks off an `AudioContext` cursor). The `@google/genai` SDK is loaded with a dynamic `import()` inside the connect path, so its weight only lands for users who actually turn voice translation on. `CallRuntime` owns the session and the single `<DailyAudio>` element, sitting between `DailyProvider` and `CallStage` so both survive minimize and expand.
+
 One normalization over corpland-web, applied everywhere from day one: **services always unwrap and return `response.data`** (the `OrderService` style), typed against the backend envelope `{ success, message, data, count? }`. The `auth.service.ts` raw-axios-promise style and the resulting `response.data?.data.user` chains are not ported.
 
 ```ts

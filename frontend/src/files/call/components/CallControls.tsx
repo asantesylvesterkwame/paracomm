@@ -1,4 +1,12 @@
-import { Captions, Mic, MicOff, PhoneOff, Video, VideoOff } from "lucide-react";
+import {
+  AudioLines,
+  Captions,
+  Mic,
+  MicOff,
+  PhoneOff,
+  Video,
+  VideoOff,
+} from "lucide-react";
 import ButtonElement from "@/components/elements/ButtonElement";
 import ToggleElement from "@/components/elements/ToggleElement";
 import { CALL_COPY } from "../call.constants";
@@ -8,9 +16,12 @@ interface CallControlsProps {
   isCameraOff: boolean;
   isCaptionsOn: boolean;
   isCaptionsSupported: boolean;
+  isDubbingOn: boolean;
+  dubbingUnavailableReason: string | null;
   onToggleMic: () => void;
   onToggleCamera: () => void;
   onToggleCaptions: (value: boolean) => void;
+  onToggleDubbing: (value: boolean) => void;
   onLeave: () => void;
 }
 
@@ -19,13 +30,16 @@ const CallControls = ({
   isCameraOff,
   isCaptionsOn,
   isCaptionsSupported,
+  isDubbingOn,
+  dubbingUnavailableReason,
   onToggleMic,
   onToggleCamera,
   onToggleCaptions,
+  onToggleDubbing,
   onLeave,
 }: CallControlsProps) => {
   return (
-    <div className="flex items-center gap-2 rounded-4xl bg-background/70 p-2 ring-1 ring-border backdrop-blur-xl">
+    <div className="flex items-center gap-1.5 rounded-4xl bg-background/70 p-1.5 ring-1 ring-border backdrop-blur-xl sm:gap-2 sm:p-2">
       <ToggleElement
         pressed={isMicMuted}
         onPressedChange={onToggleMic}
@@ -53,11 +67,23 @@ const CallControls = ({
         <Captions />
       </ToggleElement>
 
+      <ToggleElement
+        pressed={isDubbingOn}
+        onPressedChange={onToggleDubbing}
+        disabled={Boolean(dubbingUnavailableReason)}
+        label={
+          dubbingUnavailableReason ??
+          (isDubbingOn ? CALL_COPY.DUBBING_OFF : CALL_COPY.DUBBING_ON)
+        }
+      >
+        <AudioLines />
+      </ToggleElement>
+
       <ButtonElement
         variant="destructive"
         onClick={onLeave}
         aria-label={CALL_COPY.HANG_UP}
-        className="ms-1 h-12 gap-2 rounded-4xl px-5"
+        className="ms-1 h-12 gap-2 rounded-4xl px-3.5 sm:px-5"
       >
         <PhoneOff className="size-5" />
         <span className="hidden sm:inline">{CALL_COPY.HANG_UP}</span>

@@ -7,11 +7,14 @@ import { roomMessages } from "../room/room.messages";
 import { userMessages } from "../user/user.messages";
 import { getVideoProviders } from "../../providers/video/video.registry";
 import { getTranslationProviders } from "../../providers/translation/translation.registry";
+import { getDubbingProviders } from "../../providers/dubbing/dubbing.registry";
 import { RoomEvents } from "../../utils/roomEvents";
 import { UserEvents } from "../../utils/userEvents";
 import {
 	checkCaptionMinuteLimit,
+	checkDubbingMinuteLimit,
 	checkAndConsumeUserDailyChars,
+	checkAndConsumeUserDailySeconds,
 } from "../../utils/quota";
 import {
 	CALL_ROOM_TTL_SECONDS,
@@ -23,7 +26,11 @@ import { buildCallSummary, callDisplayName } from "./call.utils";
 import type { IActor } from "../../utils/auth";
 import type { ICallRow, CallStatus } from "./call.model";
 import type { IUser } from "../user/user.model";
-import type { ITranslateCaptionBody, IEndCallBody } from "./call.validation";
+import type {
+	ITranslateCaptionBody,
+	IEndCallBody,
+	IStartDubbingBody,
+} from "./call.validation";
 
 class CallService {
 	static async startCall(env: Env, roomId: string, actor: IActor) {
@@ -360,6 +367,83 @@ class CallService {
 		return {
 			success: false as const,
 			message: callMessages.CAPTION_PROVIDER_FAILED,
+			code: "PROVIDER" as const,
+		};
+	}
+
+	static async startDubbing(
+		env: Env,
+		callId: string,
+		body: IStartDubbingBody,
+		actor: IActor,
+	) {
+		const context = await CallService.resolveParticipant(env, callId, actor);
+		if (!context.success) return context;
+		const { me } = context.data;
+
+		const providers = getDubbingProviders(env);
+		if (providers.length === 0) {
+			return {
+				success: false as const,
+				message: callMessages.DUBBING_NOT_CONFIGURED,
+			};
+		}
+
+		const withinRate = await checkDubbingMinuteLimit(env, `dubbing:${me.id}`);
+		if (!withinRate) {
+			return {
+				success: false as const,
+				message: callMessages.DUBBING_LIMIT_REACHED,
+				code: "RATE_MINUTE" as const,
+				retryAfterSeconds: 60,
+			};
+		}
+
+		const sessionSeconds = Number(env.DUBBING_SESSION_SECONDS);
+		const quota = await checkAndConsumeUserDailySeconds(
+			env,
+			me.id,
+			sessionSeconds,
+		);
+		if (!quota.allowed) {
+			return {
+				success: false as const,
+				message: callMessages.DUBBING_DAILY_LIMIT_REACHED,
+				code: "RATE_DAY" as const,
+				retryAfterSeconds: quota.retryAfterSeconds,
+				remaining: quota.remaining,
+			};
+		}
+
+		for (const provider of providers) {
+			const outcome = await provider.createSession(env, {
+				targetLang: body.targetLang,
+				ttlSeconds: sessionSeconds,
+			});
+			if (outcome.ok) {
+				return {
+					success: true as const,
+					message: callMessages.DUBBING_STARTED,
+					data: {
+						token: outcome.token,
+						expiresAt: outcome.expiresAt,
+						model: outcome.model,
+						provider: provider.name,
+						targetLang: body.targetLang,
+						sessionSeconds,
+						remainingSeconds: quota.remaining,
+					},
+				};
+			}
+			console.error(
+				`dubbing provider ${provider.name} failed`,
+				outcome.error,
+			);
+		}
+
+		return {
+			success: false as const,
+			message: callMessages.DUBBING_PROVIDER_FAILED,
 			code: "PROVIDER" as const,
 		};
 	}

@@ -2,15 +2,17 @@ import { useEffect, useRef } from "react";
 import { DailyProvider, useCallObject } from "@daily-co/daily-react";
 import { notify } from "@/utils";
 import { useAuthContext } from "@/files/auth/auth.context";
-import CallStage from "./CallStage";
+import CallRuntime from "./CallRuntime";
 import type { ICallCredentials } from "../call.interface";
 
 interface CallSessionProps {
   credentials: ICallCredentials;
   isMinimized: boolean;
   isCaptionsOn: boolean;
+  isDubbingOn: boolean;
   onMinimize: (value: boolean) => void;
   onToggleCaptions: (value: boolean) => void;
+  onToggleDubbing: (value: boolean) => void;
   onLeave: () => void;
 }
 
@@ -18,8 +20,10 @@ const CallSession = ({
   credentials,
   isMinimized,
   isCaptionsOn,
+  isDubbingOn,
   onMinimize,
   onToggleCaptions,
+  onToggleDubbing,
   onLeave,
 }: CallSessionProps) => {
   const { profile } = useAuthContext();
@@ -56,13 +60,14 @@ const CallSession = ({
 
   return (
     <DailyProvider callObject={callObject}>
-      <CallStage
-        callId={credentials.call.id}
-        otherUser={credentials.otherUser}
+      <CallRuntime
+        credentials={credentials}
         isMinimized={isMinimized}
         isCaptionsOn={isCaptionsOn}
+        isDubbingOn={isDubbingOn}
         onMinimize={onMinimize}
         onToggleCaptions={onToggleCaptions}
+        onToggleDubbing={onToggleDubbing}
         onLeave={onLeave}
       />
     </DailyProvider>

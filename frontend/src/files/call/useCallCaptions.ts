@@ -28,6 +28,8 @@ interface UseCallCaptionsOptions {
   isEnabled: boolean;
   isMicMuted: boolean;
   otherUserLang: string;
+  isDubbingActive: boolean;
+  isDubSpeaking: boolean;
 }
 
 const useCallCaptions = ({
@@ -35,6 +37,8 @@ const useCallCaptions = ({
   isEnabled,
   isMicMuted,
   otherUserLang,
+  isDubbingActive,
+  isDubSpeaking,
 }: UseCallCaptionsOptions) => {
   const { profile } = useAuthContext();
   const localSessionId = useLocalSessionId();
@@ -44,10 +48,15 @@ const useCallCaptions = ({
   const [remoteInterim, setRemoteInterim] = useState("");
 
   const seqRef = useRef(0);
+  const isDubbingActiveRef = useRef(isDubbingActive);
   const wasLocalActiveRef = useRef(false);
   const remoteInterimTimerRef = useRef<ReturnType<typeof setTimeout> | null>(
     null,
   );
+
+  useEffect(() => {
+    isDubbingActiveRef.current = isDubbingActive;
+  }, [isDubbingActive]);
 
   const myLang = profile?.preferredLang ?? "en";
   const isSupported = useMemo(() => isCaptionSupported(), []);
@@ -122,6 +131,7 @@ const useCallCaptions = ({
 
   const receiveWireMessage = useCallback(
     (message: ICaptionWireMessage, sessionId: string) => {
+      if (isDubbingActiveRef.current) return;
       if (message.state === "interim") {
         setRemoteInterim(message.text);
         if (remoteInterimTimerRef.current) {
@@ -200,6 +210,7 @@ const useCallCaptions = ({
   const { interimTranscript, isMicrophoneAvailable, reset } = useDictation({
     lang: dictationLocale,
     isEnabled: isDictationOn,
+    isPaused: isDubSpeaking,
     onFinal: handleFinal,
   });
 

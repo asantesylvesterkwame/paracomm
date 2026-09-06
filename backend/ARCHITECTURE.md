@@ -267,7 +267,14 @@ providers/translation/
   deepl.provider.ts
   gemini.provider.ts
   translation.registry.ts     ordered chain, skips providers over their KV monthly char budget
+
+providers/dubbing/
+  dubbing.provider.ts         createSession({ targetLang, ttlSeconds }) -> { token, expiresAt, model }
+  geminiLive.provider.ts      mints a Gemini Live ephemeral token via POST /v1beta/auth_tokens
+  dubbing.registry.ts         empty when GEMINI_API_KEY or DUBBING_MODEL is unset
 ```
+
+Dubbing is the one provider whose output never flows through the Worker. `POST /api/v1/calls/:callId/dubbing` mints a short lived ephemeral token whose `liveConnectConstraints` pin the model, `responseModalities`, `translationConfig` and both transcription configs server side. The browser then holds the audio WebSocket to Google directly, so `GEMINI_API_KEY` never reaches the client and a Worker never proxies a call length audio stream. Usage is metered at mint time: each token consumes `DUBBING_SESSION_SECONDS` from the caller's `dub:day:<date>:<userId>` KV budget, guarded by the `DUBBING_RPM` rate limit binding.
 
 The consuming seam is the service layer, at the same place cubbicles hooks `filterContent` into `sendMessage` (`cubbicle.service.js:705`): the message persists and emits immediately with original text, then translation runs fire and forget via `c.executionCtx.waitUntil(...)` (the Workers replacement for `setImmediate`) and emits `message:updated` when done. Chat latency never waits on a provider. Translation results cache in the message row's `translations` map first, then KV by text hash.
 

@@ -13,11 +13,13 @@ const CallOverlay = () => {
     isMinimized,
     isAccepting,
     isCaptionsOn,
+    isDubbingOn,
     acceptCall,
     declineCall,
     endCall,
     setIsMinimized,
     setIsCaptionsOn,
+    setIsDubbingOn,
   } = useCallContext();
 
   return (
@@ -37,8 +39,10 @@ const CallOverlay = () => {
             credentials={credentials}
             isMinimized={isMinimized}
             isCaptionsOn={isCaptionsOn}
+            isDubbingOn={isDubbingOn}
             onMinimize={setIsMinimized}
             onToggleCaptions={setIsCaptionsOn}
+            onToggleDubbing={setIsDubbingOn}
             onLeave={() => void endCall()}
           />
         </Suspense>

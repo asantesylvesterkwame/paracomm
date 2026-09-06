@@ -5,7 +5,11 @@ import { respond } from "../../core/response";
 import { StatusCodes } from "../../constants";
 import { callMessages } from "./call.messages";
 import type { AppEnv } from "../../core/types";
-import type { IEndCallBody, ITranslateCaptionBody } from "./call.validation";
+import type {
+	IEndCallBody,
+	ITranslateCaptionBody,
+	IStartDubbingBody,
+} from "./call.validation";
 
 type StartCallContext = Context<AppEnv, "/:roomId/calls">;
 
@@ -23,6 +27,12 @@ type TranslateCaptionContext = Context<
 	{ in: { json: ITranslateCaptionBody }; out: { json: ITranslateCaptionBody } }
 >;
 
+type StartDubbingContext = Context<
+	AppEnv,
+	"/:callId/dubbing",
+	{ in: { json: IStartDubbingBody }; out: { json: IStartDubbingBody } }
+>;
+
 const failureStatus = (message: string) => {
 	if (message === callMessages.CALL_NOT_FOUND) return StatusCodes.NOT_FOUND;
 	if (message === callMessages.NOT_A_PARTICIPANT) return StatusCodes.FORBIDDEN;
@@ -31,6 +41,10 @@ const failureStatus = (message: string) => {
 	if (message === callMessages.VIDEO_NOT_CONFIGURED)
 		return StatusCodes.BAD_GATEWAY;
 	if (message === callMessages.VIDEO_PROVIDER_FAILED)
+		return StatusCodes.BAD_GATEWAY;
+	if (message === callMessages.DUBBING_NOT_CONFIGURED)
+		return StatusCodes.BAD_GATEWAY;
+	if (message === callMessages.DUBBING_PROVIDER_FAILED)
 		return StatusCodes.BAD_GATEWAY;
 	return StatusCodes.BAD_REQUEST;
 };
@@ -114,6 +128,27 @@ export const translateCaptionController = async (
 	}
 	c.header("X-Quota-Day-Remaining", String(result.data.remainingChars));
 	return respond(c, StatusCodes.SUCCESS, {
+		success: true,
+		message: result.message,
+		data: result.data,
+	});
+};
+
+export const startDubbingController = async (c: StartDubbingContext) => {
+	const actor = c.get("actor");
+	const callId = c.req.param("callId");
+	const body = c.req.valid("json");
+	const result = await CallService.startDubbing(c.env, callId, body, actor);
+	if (!result.success) {
+		if ("retryAfterSeconds" in result && result.retryAfterSeconds) {
+			throw new AppError(result.message, StatusCodes.TOO_MANY_REQUESTS, {
+				"Retry-After": String(result.retryAfterSeconds),
+			});
+		}
+		throw new AppError(result.message, failureStatus(result.message));
+	}
+	c.header("X-Quota-Day-Remaining", String(result.data.remainingSeconds));
+	return respond(c, StatusCodes.CREATED, {
 		success: true,
 		message: result.message,
 		data: result.data,

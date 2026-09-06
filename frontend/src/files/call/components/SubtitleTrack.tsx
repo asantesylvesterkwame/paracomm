@@ -1,10 +1,13 @@
 import { AnimatePresence, motion } from "motion/react";
-import { CaptionsOff, MicOff } from "lucide-react";
+import { AudioLines, CaptionsOff, MicOff } from "lucide-react";
 import { SPRING } from "@/lib/motion";
 import { cn } from "@/lib/utils";
 import { CALL_COPY } from "../call.constants";
+import { DUBBING_COPY } from "../dubbing/dubbing.constants";
 import SubtitleLine from "./SubtitleLine";
+import DubbingLine from "./DubbingLine";
 import type { ICaption } from "../call.interface";
+import type { IDubbingResult } from "../dubbing/dubbing.interface";
 
 interface SubtitleTrackProps {
   captions: ICaption[];
@@ -13,6 +16,9 @@ interface SubtitleTrackProps {
   isEnabled: boolean;
   isSupported: boolean;
   isMicMuted: boolean;
+  isDubbingActive: boolean;
+  dubbing: IDubbingResult;
+  myLang: string;
   className?: string;
 }
 
@@ -36,10 +42,17 @@ const SubtitleTrack = ({
   isEnabled,
   isSupported,
   isMicMuted,
+  isDubbingActive,
+  dubbing,
+  myLang,
   className,
 }: SubtitleTrackProps) => {
+  const dubbingLines = dubbing.current
+    ? [...dubbing.lines, dubbing.current]
+    : dubbing.lines;
+  const hasDubbingLines = dubbingLines.length > 0;
   const hasLines = captions.length > 0;
-  const liveText = remoteInterim || interim;
+  const liveText = isDubbingActive ? interim : remoteInterim || interim;
 
   return (
     <motion.section
@@ -52,7 +65,35 @@ const SubtitleTrack = ({
         className,
       )}
     >
-      {!isSupported ? (
+      {isDubbingActive ? (
+        <div className="flex flex-col gap-3">
+          <ul className="flex flex-col gap-3">
+            <AnimatePresence initial={false} mode="popLayout">
+              {dubbingLines.map((line) => (
+                <DubbingLine key={line.id} line={line} targetLang={myLang} />
+              ))}
+            </AnimatePresence>
+          </ul>
+
+          <AnimatePresence initial={false}>
+            {liveText && (
+              <motion.p
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                transition={SPRING.snappy}
+                className="ps-5 text-sm text-muted-foreground italic"
+              >
+                {liveText}
+              </motion.p>
+            )}
+          </AnimatePresence>
+
+          {!hasDubbingLines && !liveText && (
+            <Notice icon={AudioLines}>{DUBBING_COPY.NO_SPEECH_YET}</Notice>
+          )}
+        </div>
+      ) : !isSupported ? (
         <Notice icon={CaptionsOff}>{CALL_COPY.CAPTIONS_UNSUPPORTED}</Notice>
       ) : !isEnabled ? (
         <Notice icon={CaptionsOff}>{CALL_COPY.CAPTIONS_DISABLED}</Notice>

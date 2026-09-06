@@ -2,6 +2,7 @@ import { z } from "zod";
 import {
 	INPUT_LANGUAGE_CODES,
 	OUTPUT_LANGUAGE_CODES,
+	DUBBING_LANGUAGE_CODES,
 	MAX_UTTERANCE_CHARS,
 } from "../../constants/languages";
 
@@ -24,3 +25,9 @@ export const translateCaption = z.object({
 });
 
 export type ITranslateCaptionBody = z.infer<typeof translateCaption>;
+
+export const startDubbing = z.object({
+	targetLang: z.enum(DUBBING_LANGUAGE_CODES),
+});
+
+export type IStartDubbingBody = z.infer<typeof startDubbing>;

@@ -33,6 +33,7 @@ export const CallProvider = ({ children }: { children: ReactNode }) => {
   const [call, setCall] = useState<ICall | null>(null);
   const [isMinimized, setIsMinimized] = useState(false);
   const [isCaptionsOn, setIsCaptionsOn] = useState(true);
+  const [isDubbingOn, setIsDubbingOn] = useState(false);
 
   const ringTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const activeCallIdRef = useRef<string | null>(null);
@@ -201,12 +202,14 @@ export const CallProvider = ({ children }: { children: ReactNode }) => {
       isStarting,
       isAccepting,
       isCaptionsOn,
+      isDubbingOn,
       startCall,
       acceptCall,
       declineCall,
       endCall,
       setIsMinimized,
       setIsCaptionsOn,
+      setIsDubbingOn,
     }),
     [
       acceptCall,
@@ -217,6 +220,7 @@ export const CallProvider = ({ children }: { children: ReactNode }) => {
       incoming,
       isAccepting,
       isCaptionsOn,
+      isDubbingOn,
       isMinimized,
       isStarting,
       phase,

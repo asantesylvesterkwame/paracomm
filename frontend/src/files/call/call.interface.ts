@@ -86,10 +86,12 @@ export interface CallContextType {
   isStarting: boolean;
   isAccepting: boolean;
   isCaptionsOn: boolean;
+  isDubbingOn: boolean;
   startCall: (roomId: string) => Promise<void>;
   acceptCall: () => Promise<void>;
   declineCall: () => Promise<void>;
   endCall: () => Promise<void>;
   setIsMinimized: (value: boolean) => void;
   setIsCaptionsOn: (value: boolean) => void;
+  setIsDubbingOn: (value: boolean) => void;
 }

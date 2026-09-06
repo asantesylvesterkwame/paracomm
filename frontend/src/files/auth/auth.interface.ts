@@ -2,6 +2,7 @@ import type { IUser } from "@/files/user/user.interface";
 
 export interface AuthContextType {
   profile: IUser | null;
+  identityId: string | null;
   isProfileNew: boolean;
   isSignedIn: boolean;
   isClerkConfigured: boolean;

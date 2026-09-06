@@ -1,4 +1,4 @@
-import { Link, Outlet, useMatch } from "react-router-dom";
+import { Link, Outlet } from "react-router-dom";
 import { AnimatePresence, motion } from "motion/react";
 import { ArrowLeft, MessagesSquare } from "lucide-react";
 import Logo from "@/components/common/Logo";
@@ -6,7 +6,7 @@ import { ModeToggle } from "@/components/common/ModeToggle";
 import EmptyState from "@/components/common/EmptyState";
 import ScrollAreaElement from "@/components/elements/ScrollAreaElement";
 import SkeletonElement from "@/components/elements/SkeletonElement";
-import { SPRING, staggerParent } from "@/lib/motion";
+import { EXIT_FAST, SPRING, staggerParent } from "@/lib/motion";
 import { cn } from "@/lib/utils";
 import { ROUTES } from "@/constants/routes.constants";
 import { useAuthContext } from "@/files/auth/auth.context";
@@ -16,11 +16,10 @@ import NewChatButton from "../components/NewChatButton";
 import ChatSettingsSheet from "../components/ChatSettingsSheet";
 
 const Chat = () => {
-  const roomId = useMatch(ROUTES.CHAT_ROOM)?.params.roomId;
   const { profile } = useAuthContext();
-  const { rooms, isLoading, hasFetched } = useRoomContext();
-  const hasOpenRoom = Boolean(roomId);
-
+  const { rooms, hasFetched, isSkeletonVisible, activeRoomId } =
+    useRoomContext();
+  const hasOpenRoom = Boolean(activeRoomId);
   return (
     <div className="flex h-dvh flex-col bg-background">
       <header className="border-b border-border/60 bg-background/80 backdrop-blur-xl">
@@ -51,7 +50,7 @@ const Chat = () => {
           )}
         >
           <ScrollAreaElement className="h-full px-3 py-3 md:px-0">
-            {isLoading && !hasFetched && (
+            {isSkeletonVisible && (
               <div className="flex flex-col gap-3">
                 {[0, 1, 2, 3].map((row) => (
                   <SkeletonElement key={row} className="h-16 rounded-2xl" />
@@ -72,9 +71,15 @@ const Chat = () => {
               animate="show"
               className="flex flex-col gap-1"
             >
-              {rooms.map((room) => (
-                <RoomListItem key={room.id} room={room} myUserId={profile?.id} />
-              ))}
+              <AnimatePresence initial={false}>
+                {rooms.map((room) => (
+                  <RoomListItem
+                    key={room.id}
+                    room={room}
+                    myUserId={profile?.id}
+                  />
+                ))}
+              </AnimatePresence>
             </motion.div>
           </ScrollAreaElement>
         </aside>
@@ -87,13 +92,13 @@ const Chat = () => {
         >
           <AnimatePresence mode="wait">
             {hasOpenRoom ? (
-              <Outlet key={roomId} />
+              <Outlet key={activeRoomId} />
             ) : (
               <motion.div
                 key="empty"
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
-                exit={{ opacity: 0 }}
+                exit={{ opacity: 0, transition: EXIT_FAST }}
                 transition={SPRING.card}
                 className="flex h-full items-center justify-center"
               >

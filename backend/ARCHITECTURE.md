@@ -252,6 +252,8 @@ The replacement:
 - `typing` is a validated, fixed-shape event relayed only to the sender's room — the arbitrary `data.eventName` relay is banned.
 - All emission goes through one choke point, `utils/roomEvents.ts` (`RoomEvents.emit(env, roomId, event, payload)`), which resolves the DO stub and calls its broadcast method — the same single-seam role `SocketClient.send` plays in cubbicles services, minus the double emit.
 - Room member list updates (the `cubbicle:user:all:<userId>` fan-out) are replaced by a slim `room:updated` event carrying only the changed room summary. No per-member full list re-queries, ever.
+- Every socket in a room receives `message:new`, including the sender's own. Senders reconcile their optimistic copy through `clientId`: `POST /rooms/:roomId/messages` accepts an optional client generated uuid, stores it on the row (`messages.client_id`, nullable, partial unique index on `(room_id, client_id)`), and echoes it back on every payload. `sendMessage` returns the existing row when that `clientId` is already stored, so a retried send after a lost response is idempotent and can never create a second message. Clients that send no `clientId` keep the previous behaviour.
+- The room list payload carries `otherLastSeenMessageId` and `otherLastSeenAt` from the other member's `room_members` row, so read receipts survive a page reload instead of existing only for the lifetime of a socket connection.
 
 ---
 
@@ -265,7 +267,14 @@ providers/translation/
   deepl.provider.ts
   gemini.provider.ts
   translation.registry.ts     ordered chain, skips providers over their KV monthly char budget
+
+providers/dubbing/
+  dubbing.provider.ts         createSession({ targetLang, ttlSeconds }) -> { token, expiresAt, model }
+  geminiLive.provider.ts      mints a Gemini Live ephemeral token via POST /v1beta/auth_tokens
+  dubbing.registry.ts         empty when GEMINI_API_KEY or DUBBING_MODEL is unset
 ```
+
+Dubbing is the one provider whose output never flows through the Worker. `POST /api/v1/calls/:callId/dubbing` mints a short lived ephemeral token whose `liveConnectConstraints` pin the model, `responseModalities`, `translationConfig` and both transcription configs server side. The browser then holds the audio WebSocket to Google directly, so `GEMINI_API_KEY` never reaches the client and a Worker never proxies a call length audio stream. Usage is metered at mint time: each token consumes `DUBBING_SESSION_SECONDS` from the caller's `dub:day:<date>:<userId>` KV budget, guarded by the `DUBBING_RPM` rate limit binding.
 
 The consuming seam is the service layer, at the same place cubbicles hooks `filterContent` into `sendMessage` (`cubbicle.service.js:705`): the message persists and emits immediately with original text, then translation runs fire and forget via `c.executionCtx.waitUntil(...)` (the Workers replacement for `setImmediate`) and emits `message:updated` when done. Chat latency never waits on a provider. Translation results cache in the message row's `translations` map first, then KV by text hash.
 

@@ -3,7 +3,9 @@
   "name": "paracomm-backend",
   "main": "./src/worker/index.ts",
   "compatibility_date": "2025-10-08",
-  "compatibility_flags": ["nodejs_compat"],
+  "compatibility_flags": [
+    "nodejs_compat"
+  ],
   "observability": {
     "enabled": true
   },
@@ -20,13 +22,25 @@
       {
         "name": "ROOM_DO",
         "class_name": "RoomDO"
+      },
+      {
+        "name": "USER_DO",
+        "class_name": "UserDO"
       }
     ]
   },
   "migrations": [
     {
       "tag": "v1",
-      "new_sqlite_classes": ["RoomDO"]
+      "new_sqlite_classes": [
+        "RoomDO"
+      ]
+    },
+    {
+      "tag": "v2",
+      "new_sqlite_classes": [
+        "UserDO"
+      ]
     }
   ],
   "d1_databases": [
@@ -45,15 +59,39 @@
         "limit": 20,
         "period": 60
       }
+    },
+    {
+      "name": "CAPTION_RPM",
+      "namespace_id": "1002",
+      "simple": {
+        "limit": 90,
+        "period": 60
+      }
+    },
+    {
+      "name": "DUBBING_RPM",
+      "namespace_id": "1003",
+      "simple": {
+        "limit": 12,
+        "period": 60
+      }
     }
   ],
   "vars": {
     "CHAT_DAILY_CHAR_BUDGET": "20000",
     "CLERK_PUBLISHABLE_KEY": "pk_test_c2V0dGxlZC1yYWJiaXQtNTcuY2xlcmsuYWNjb3VudHMuZGV2JA",
     "DAILY_CHAR_BUDGET": "15000",
+    "DUBBING_MODEL": "gemini-3.5-live-translate-preview",
+    "DUBBING_SESSION_SECONDS": "600",
+    "DUBBING_DAILY_SECONDS_BUDGET": "3600",
     "TRANSLATION_MODEL": "gemini-3.6-flash",
     "TTS_MODEL": "gemini-3.1-flash-tts-preview",
     "TTS_VOICE": "Kore",
     "CORS_ORIGINS": "http://localhost:5173,https://paracomm.intelligentson17.workers.dev"
+  },
+  "triggers": {
+    "crons": [
+      "*/1 * * * *"
+    ]
   }
 }

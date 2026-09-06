@@ -117,3 +117,12 @@ export const formatTimeAgo = (value: string | number | Date) => {
     day: "numeric",
   });
 };
+
+export {
+  cacheRead,
+  cacheReadSync,
+  cacheWrite,
+  cacheRemove,
+  cacheClearForUser,
+  cacheFlush,
+} from "./cacheStore";

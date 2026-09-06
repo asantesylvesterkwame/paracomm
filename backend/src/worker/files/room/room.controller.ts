@@ -50,7 +50,9 @@ export const listRoomsController = async (c: ListRoomsContext) => {
 	});
 };
 
-export const roomSocketController = async (c: Context<AppEnv>) => {
+export const roomSocketController = async (
+	c: Context<AppEnv, "/:roomId/ws">,
+) => {
 	if (c.req.header("Upgrade") !== "websocket") {
 		throw new AppError("Expected a websocket upgrade", StatusCodes.BAD_REQUEST);
 	}

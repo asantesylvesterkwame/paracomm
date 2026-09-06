@@ -5,12 +5,15 @@ import {
 	getMeController,
 	updateMeController,
 	searchUsersController,
+	userSocketController,
 } from "./user.controller";
 import { isAuthenticated } from "../../utils/auth";
 import { validationHook } from "../../utils/validation";
 import type { AppEnv } from "../../core/types";
 
 const userRoutes = new Hono<AppEnv>();
+
+userRoutes.get("/me/ws", userSocketController);
 
 userRoutes.use("*", isAuthenticated);
 

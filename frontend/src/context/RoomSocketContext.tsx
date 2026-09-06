@@ -14,6 +14,7 @@ type SocketHandler = (payload: unknown) => void;
 
 interface RoomSocketContextType {
   isSocketConnected: boolean;
+  connectionKey: number;
   joinRoom: (roomId: string) => void;
   leaveRoom: () => void;
   sendEvent: (event: string, payload?: unknown) => void;
@@ -30,12 +31,14 @@ const PING_INTERVAL_MS = 30000;
 
 export const RoomSocketProvider = ({ children }: { children: ReactNode }) => {
   const [isSocketConnected, setIsSocketConnected] = useState(false);
+  const [connectionKey, setConnectionKey] = useState(0);
   const socketRef = useRef<WebSocket | null>(null);
   const roomIdRef = useRef<string | null>(null);
   const attemptRef = useRef(0);
   const reconnectTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const pingTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const handlersRef = useRef<Map<string, Set<SocketHandler>>>(new Map());
+  const connectRef = useRef<() => void>(() => undefined);
 
   const clearTimers = useCallback(() => {
     if (reconnectTimerRef.current) {
@@ -63,10 +66,28 @@ export const RoomSocketProvider = ({ children }: { children: ReactNode }) => {
     }
   }, []);
 
+  const scheduleRetry = useCallback(() => {
+    if (!roomIdRef.current || socketRef.current || reconnectTimerRef.current) {
+      return;
+    }
+    const delay =
+      Math.min(MAX_BACKOFF_MS, 1000 * 2 ** attemptRef.current) +
+      Math.random() * 400;
+    attemptRef.current += 1;
+    reconnectTimerRef.current = setTimeout(() => {
+      reconnectTimerRef.current = null;
+      void connectRef.current();
+    }, delay);
+  }, []);
+
   const connect = useCallback(async () => {
     const roomId = roomIdRef.current;
     if (!roomId) return;
     const token = await getAuthToken();
+    if (!token && roomIdRef.current === roomId) {
+      scheduleRetry();
+      return;
+    }
     if (!token || roomIdRef.current !== roomId) return;
     const base = import.meta.env.VITE_PARACOMM_API_URL.replace(
       /^http/,
@@ -80,6 +101,7 @@ export const RoomSocketProvider = ({ children }: { children: ReactNode }) => {
       if (socketRef.current !== socket) return;
       attemptRef.current = 0;
       setIsSocketConnected(true);
+      setConnectionKey((previous) => previous + 1);
       if (pingTimerRef.current) clearInterval(pingTimerRef.current);
       pingTimerRef.current = setInterval(() => {
         if (socket.readyState === WebSocket.OPEN) socket.send("ping");
@@ -109,16 +131,20 @@ export const RoomSocketProvider = ({ children }: { children: ReactNode }) => {
         pingTimerRef.current = null;
       }
       if (!roomIdRef.current) return;
-      const delay = Math.min(
-        MAX_BACKOFF_MS,
-        1000 * 2 ** attemptRef.current,
-      );
+      const delay =
+        Math.min(MAX_BACKOFF_MS, 1000 * 2 ** attemptRef.current) +
+        Math.random() * 400;
       attemptRef.current += 1;
       reconnectTimerRef.current = setTimeout(() => {
-        void connect();
+        reconnectTimerRef.current = null;
+        void connectRef.current();
       }, delay);
     };
-  }, []);
+  }, [scheduleRetry]);
+
+  useEffect(() => {
+    connectRef.current = () => void connect();
+  }, [connect]);
 
   const joinRoom = useCallback(
     (roomId: string) => {
@@ -175,8 +201,24 @@ export const RoomSocketProvider = ({ children }: { children: ReactNode }) => {
   }, [clearTimers, closeSocket, connect]);
 
   const value = useMemo(
-    () => ({ isSocketConnected, joinRoom, leaveRoom, sendEvent, on, off }),
-    [isSocketConnected, joinRoom, leaveRoom, sendEvent, on, off],
+    () => ({
+      isSocketConnected,
+      connectionKey,
+      joinRoom,
+      leaveRoom,
+      sendEvent,
+      on,
+      off,
+    }),
+    [
+      isSocketConnected,
+      connectionKey,
+      joinRoom,
+      leaveRoom,
+      sendEvent,
+      on,
+      off,
+    ],
   );
 
   return (

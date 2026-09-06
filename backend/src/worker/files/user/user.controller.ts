@@ -1,9 +1,11 @@
 import type { Context } from "hono";
-import { getAuth } from "@hono/clerk-auth";
 import UserService from "./user.service";
 import { AppError } from "../../utils/errors";
 import { respond } from "../../core/response";
 import { StatusCodes } from "../../constants";
+import { verifyWsToken } from "../../utils/auth";
+import { UserEvents } from "../../utils/userEvents";
+import { generalMessages } from "../../core/messages";
 import type { AppEnv } from "../../core/types";
 import type { IUpdateMeBody, ISearchUsersQuery } from "./user.validation";
 
@@ -60,4 +62,23 @@ export const searchUsersController = async (c: SearchUsersContext) => {
 		data: result.data,
 		count: result.count,
 	});
+};
+
+export const userSocketController = async (c: Context<AppEnv>) => {
+	if (c.req.header("Upgrade") !== "websocket") {
+		throw new AppError("Expected a websocket upgrade", StatusCodes.BAD_REQUEST);
+	}
+	const token = c.req.query("token") ?? "";
+	const clerkId = await verifyWsToken(c.env, token);
+	if (!clerkId) {
+		throw new AppError(
+			generalMessages.UNAUTHENTICATED,
+			StatusCodes.UNAUTHORIZED,
+		);
+	}
+	const result = await UserService.authorizeSocket(c.env, clerkId);
+	if (!result.success) {
+		throw new AppError(result.message, StatusCodes.FORBIDDEN);
+	}
+	return UserEvents.connect(c.env, result.data.userId, c.req.raw);
 };

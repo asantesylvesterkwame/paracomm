@@ -16,9 +16,11 @@ class MessageService {
   static async sendMessage(
     roomId: string,
     text: string,
+    clientId: string,
   ): Promise<IApiResult<IMessage>> {
     const response = await PARACOMM_API.post(`/rooms/${roomId}/messages`, {
       text,
+      clientId,
     });
     return response.data;
   }

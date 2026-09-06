@@ -1,4 +1,11 @@
-import { sqliteTable, text, integer, index } from "drizzle-orm/sqlite-core";
+import {
+	sqliteTable,
+	text,
+	integer,
+	index,
+	uniqueIndex,
+} from "drizzle-orm/sqlite-core";
+import { sql } from "drizzle-orm";
 import { rooms } from "../room/room.model";
 
 export const messages = sqliteTable(
@@ -8,7 +15,12 @@ export const messages = sqliteTable(
 		roomId: text("room_id")
 			.notNull()
 			.references(() => rooms.id),
+		clientId: text("client_id"),
 		senderId: text("sender_id").notNull(),
+		kind: text("kind", { enum: ["text", "call"] })
+			.notNull()
+			.default("text"),
+		callId: text("call_id"),
 		originalText: text("original_text").notNull(),
 		originalLang: text("original_lang").notNull(),
 		translatedText: text("translated_text"),
@@ -25,7 +37,12 @@ export const messages = sqliteTable(
 			.notNull()
 			.default(false),
 	},
-	(table) => [index("messages_room_created_idx").on(table.roomId, table.createdAt)],
+	(table) => [
+		index("messages_room_created_idx").on(table.roomId, table.createdAt),
+		uniqueIndex("messages_room_client_idx")
+			.on(table.roomId, table.clientId)
+			.where(sql`${table.clientId} is not null`),
+	],
 );
 
 export type IMessageRow = typeof messages.$inferSelect;

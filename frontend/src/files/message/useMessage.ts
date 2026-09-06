@@ -1,4 +1,4 @@
-import { useCallback, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { handleApiAction, notify } from "@/utils";
 import { useRoomSocket } from "@/context/RoomSocketContext";
 import { useRoomContext } from "@/files/room/room.context";
@@ -6,18 +6,42 @@ import { useAuthContext } from "@/files/auth/auth.context";
 import MessageService from "./message.service";
 import { useMessageContext } from "./message.context";
 import { MESSAGE_EVENTS, TYPING_THROTTLE_MS } from "./message.constants";
+import {
+  classifySendError,
+  failedMessagesOf,
+  isTempMessage,
+  sortByCreatedAt,
+  tempIdOf,
+} from "./message.utils";
 import type { IClientMessage } from "./message.interface";
 
-const useMessage = () => {
-  const { activeRoomId } = useRoomContext();
+const useMessage = (roomId?: string) => {
   const { profile } = useAuthContext();
-  const { sendEvent } = useRoomSocket();
-  const { messages, upsertMessage, removeMessage } = useMessageContext();
-  const [draft, setDraft] = useState("");
+  const { sendEvent, connectionKey } = useRoomSocket();
+  const { upsertRoom } = useRoomContext();
+  const {
+    drafts,
+    setDraft: setRoomDraft,
+    getRoomState,
+    upsertMessage,
+    reconcileMessage,
+    patchMessage,
+    removeMessage,
+  } = useMessageContext();
   const [isSending, setIsSending] = useState(false);
   const [isLoadingRetryTranslation, setIsLoadingRetryTranslation] =
     useState(false);
   const lastTypingRef = useRef(0);
+  const queueRef = useRef<Promise<unknown>>(Promise.resolve());
+  const draft = (roomId && drafts[roomId]) || "";
+
+  const setDraft = useCallback(
+    (value: string) => {
+      if (!roomId) return;
+      setRoomDraft(roomId, value);
+    },
+    [roomId, setRoomDraft],
+  );
 
   const emitTyping = useCallback(() => {
     const now = Date.now();
@@ -31,10 +55,47 @@ const useMessage = () => {
     sendEvent(MESSAGE_EVENTS.TYPING_STOP);
   }, [sendEvent]);
 
+  const dispatchSend = useCallback(
+    (targetRoomId: string, message: IClientMessage) => {
+      queueRef.current = queueRef.current.then(() =>
+        handleApiAction({
+          action: () =>
+            MessageService.sendMessage(
+              targetRoomId,
+              message.originalText,
+              message.clientId ?? message.id,
+            ),
+          onSuccess: (result) => {
+            if (!result?.data) {
+              removeMessage(targetRoomId, message.id);
+              return;
+            }
+            reconcileMessage(targetRoomId, result.data, message.id);
+            upsertRoom(targetRoomId, {
+              lastMessage: result.data,
+              lastMessageAt: result.data.createdAt,
+            });
+          },
+          onError: (error) => {
+            patchMessage(targetRoomId, message.id, {
+              clientStatus: "failed",
+              clientError: classifySendError(error),
+            });
+          },
+          setLoading: setIsSending,
+          errorMessage: "We could not send that message",
+          isToastDisabled: true,
+        }),
+      );
+      return queueRef.current;
+    },
+    [patchMessage, reconcileMessage, removeMessage, upsertRoom],
+  );
+
   const send = useCallback(() => {
     const text = draft.trim();
     if (!text) return;
-    if (!activeRoomId) {
+    if (!roomId) {
       notify({
         type: "error",
         message: "Open a conversation first",
@@ -51,10 +112,14 @@ const useMessage = () => {
       return;
     }
     const now = new Date().toISOString();
+    const clientId = crypto.randomUUID();
     const optimistic: IClientMessage = {
-      id: `temp_${crypto.randomUUID()}`,
-      roomId: activeRoomId,
+      id: tempIdOf(clientId),
+      roomId,
+      clientId,
       senderId: profile.id,
+      kind: "text",
+      callId: null,
       originalText: text,
       originalLang: profile.preferredLang,
       translatedText: null,
@@ -65,74 +130,91 @@ const useMessage = () => {
       updatedAt: now,
       clientStatus: "sending",
     };
-    upsertMessage(optimistic);
+    upsertMessage(roomId, optimistic);
+    upsertRoom(roomId, { lastMessage: optimistic, lastMessageAt: now });
     setDraft("");
     stopTyping();
-    void handleApiAction({
-      action: () => MessageService.sendMessage(activeRoomId, text),
-      onSuccess: (result) => {
-        if (result?.data) {
-          upsertMessage(result.data, optimistic.id);
-        } else {
-          removeMessage(optimistic.id);
-        }
-      },
-      onError: () => {
-        upsertMessage({ ...optimistic, clientStatus: "failed" });
-      },
-      setLoading: setIsSending,
-      errorMessage: "We could not send that message",
-      isToastDisabled: true,
-    });
-  }, [activeRoomId, draft, profile, removeMessage, stopTyping, upsertMessage]);
+    void dispatchSend(roomId, optimistic);
+  }, [
+    dispatchSend,
+    draft,
+    profile,
+    roomId,
+    setDraft,
+    stopTyping,
+    upsertMessage,
+    upsertRoom,
+  ]);
 
   const retrySend = useCallback(
     (id: string) => {
-      const failed = messages.find(
+      if (!roomId) return;
+      const failed = getRoomState(roomId).items.find(
         (item) => item.id === id && item.clientStatus === "failed",
       );
-      if (!failed || !activeRoomId) return;
-      upsertMessage({ ...failed, clientStatus: "sending" });
-      void handleApiAction({
-        action: () =>
-          MessageService.sendMessage(activeRoomId, failed.originalText),
-        onSuccess: (result) => {
-          if (result?.data) {
-            upsertMessage(result.data, failed.id);
-          }
-        },
-        onError: () => {
-          upsertMessage({ ...failed, clientStatus: "failed" });
-        },
-        setLoading: setIsSending,
-        errorMessage: "We could not send that message",
-        isToastDisabled: true,
+      if (!failed) return;
+      patchMessage(roomId, id, {
+        clientStatus: "sending",
+        clientError: undefined,
       });
+      void dispatchSend(roomId, { ...failed, clientStatus: "sending" });
     },
-    [activeRoomId, messages, upsertMessage],
+    [dispatchSend, getRoomState, patchMessage, roomId],
   );
+
+  const flushQueue = useCallback(() => {
+    if (!roomId) return;
+    const queued = sortByCreatedAt(
+      failedMessagesOf(getRoomState(roomId).items),
+    ).filter((item) => item.clientError === "network");
+    for (const message of queued) {
+      patchMessage(roomId, message.id, {
+        clientStatus: "sending",
+        clientError: undefined,
+      });
+      void dispatchSend(roomId, { ...message, clientStatus: "sending" });
+    }
+  }, [dispatchSend, getRoomState, patchMessage, roomId]);
+
+  const flushQueueRef = useRef(flushQueue);
+
+  useEffect(() => {
+    flushQueueRef.current = flushQueue;
+  });
+
+  useEffect(() => {
+    if (!roomId) return;
+    const onOnline = () => flushQueueRef.current();
+    window.addEventListener("online", onOnline);
+    return () => window.removeEventListener("online", onOnline);
+  }, [roomId]);
+
+  useEffect(() => {
+    if (!roomId || connectionKey < 1) return;
+    flushQueueRef.current();
+  }, [connectionKey, roomId]);
 
   const retryTranslation = useCallback(
     (messageId: string) => {
-      if (!activeRoomId) return;
+      if (!roomId) return;
       void handleApiAction({
-        action: () => MessageService.retryTranslation(activeRoomId, messageId),
+        action: () => MessageService.retryTranslation(roomId, messageId),
         onSuccess: (result) => {
-          if (result?.data) upsertMessage(result.data);
+          if (result?.data) reconcileMessage(roomId, result.data);
         },
         setLoading: setIsLoadingRetryTranslation,
         errorMessage: "We could not translate that message again",
       });
     },
-    [activeRoomId, upsertMessage],
+    [reconcileMessage, roomId],
   );
 
   const markSeen = useCallback(
     (lastSeenMessageId: string) => {
-      if (!activeRoomId || lastSeenMessageId.startsWith("temp_")) return;
-      MessageService.markSeen(activeRoomId, lastSeenMessageId).catch(() => {});
+      if (!roomId || isTempMessage(lastSeenMessageId)) return;
+      MessageService.markSeen(roomId, lastSeenMessageId).catch(() => {});
     },
-    [activeRoomId],
+    [roomId],
   );
 
   return {
@@ -140,6 +222,7 @@ const useMessage = () => {
     setDraft,
     send,
     retrySend,
+    flushQueue,
     retryTranslation,
     markSeen,
     emitTyping,

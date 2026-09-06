@@ -3,12 +3,14 @@ import {
   useCallback,
   useContext,
   useEffect,
+  useLayoutEffect,
   useMemo,
+  useRef,
   useState,
 } from "react";
 import { useAuth as useClerkAuth } from "@clerk/react";
 import { registerAuthTokenGetter } from "@/api";
-import { notify } from "@/utils";
+import { cacheClearForUser, notify } from "@/utils";
 import { isClerkConfigured } from "@/providers/clerk-provider";
 import UserService from "@/files/user/user.service";
 import type { IUser } from "@/files/user/user.interface";
@@ -19,6 +21,7 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 const signedOutValue: AuthContextType = {
   profile: null,
+  identityId: null,
   isProfileNew: false,
   isSignedIn: false,
   isClerkConfigured,
@@ -30,16 +33,23 @@ const signedOutValue: AuthContextType = {
 };
 
 const ClerkAuthBridge = ({ children }: { children: ReactNode }) => {
-  const { isLoaded, isSignedIn, getToken } = useClerkAuth();
+  const { isLoaded, isSignedIn, getToken, userId } = useClerkAuth();
   const [profile, setProfile] = useState<IUser | null>(null);
   const [isProfileNew, setIsProfileNew] = useState(false);
   const [isProfileLoading, setIsProfileLoading] = useState(false);
   const [hasFetched, setHasFetched] = useState(false);
+  const lastIdentityRef = useRef<string | null>(null);
 
   useEffect(() => {
-    if (!isSignedIn) return;
+    if (userId) lastIdentityRef.current = userId;
+  }, [userId]);
+
+  useLayoutEffect(() => {
+    if (!isSignedIn) {
+      registerAuthTokenGetter(null);
+      return;
+    }
     registerAuthTokenGetter(() => getToken());
-    return () => registerAuthTokenGetter(null);
   }, [getToken, isSignedIn]);
 
   const refetchProfile = useCallback(async () => {
@@ -76,11 +86,15 @@ const ClerkAuthBridge = ({ children }: { children: ReactNode }) => {
     if (!isLoaded) return;
     if (isSignedIn) {
       void refetchProfile();
-    } else {
-      setProfile(null);
-      setIsProfileNew(false);
-      setHasFetched(true);
+      return;
     }
+    setProfile(null);
+    if (lastIdentityRef.current) {
+      void cacheClearForUser(lastIdentityRef.current);
+      lastIdentityRef.current = null;
+    }
+    setIsProfileNew(false);
+    setHasFetched(true);
   }, [isLoaded, isSignedIn, refetchProfile]);
 
   const updateProfile = useCallback((changes: Partial<IUser>) => {
@@ -92,6 +106,7 @@ const ClerkAuthBridge = ({ children }: { children: ReactNode }) => {
   const value = useMemo<AuthContextType>(
     () => ({
       profile,
+      identityId: userId ?? null,
       isProfileNew,
       isSignedIn: Boolean(isSignedIn),
       isClerkConfigured,
@@ -103,6 +118,7 @@ const ClerkAuthBridge = ({ children }: { children: ReactNode }) => {
     }),
     [
       profile,
+      userId,
       isProfileNew,
       isSignedIn,
       isLoaded,

@@ -9,11 +9,14 @@ const useAuth = () => {
 
   const updatePreferredLang = (preferredLang: string) => {
     if (!profile || profile.preferredLang === preferredLang) return;
+    const previousLang = profile.preferredLang;
+    updateProfile({ preferredLang });
     void handleApiAction({
       action: () => UserService.updateMe({ preferredLang }),
       onSuccess: (result) => {
         if (result?.data?.user) updateProfile(result.data.user);
       },
+      onError: () => updateProfile({ preferredLang: previousLang }),
       setLoading: setIsLoadingUpdateLang,
       errorMessage: "We could not update your language",
     });

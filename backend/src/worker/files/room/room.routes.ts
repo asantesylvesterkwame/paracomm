@@ -17,6 +17,7 @@ import {
 	markSeenController,
 	retryTranslationController,
 } from "../message/message.controller";
+import { startCallController } from "../call/call.controller";
 import { isAuthenticated } from "../../utils/auth";
 import { validationHook } from "../../utils/validation";
 import type { AppEnv } from "../../core/types";
@@ -57,5 +58,7 @@ roomRoutes.post(
 	"/:roomId/messages/:messageId/translation",
 	retryTranslationController,
 );
+
+roomRoutes.post("/:roomId/calls", startCallController);
 
 export default roomRoutes;

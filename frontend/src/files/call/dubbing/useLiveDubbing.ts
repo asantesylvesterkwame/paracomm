@@ -187,7 +187,7 @@ const useLiveDubbing = ({
 
     const client = new GoogleGenAI({
       apiKey: credentials.token,
-      httpOptions: { apiVersion: "v1beta" },
+      httpOptions: { apiVersion: "v1alpha" },
     });
 
     const config = {

@@ -18,17 +18,17 @@ const buildBody = (env: Env, request: IDubbingSessionRequest) => {
 		uses: Math.ceil(request.ttlSeconds / RECONNECT_WINDOW_SECONDS) + 2,
 		expireTime: expiresAt,
 		newSessionExpireTime: expiresAt,
-		liveConnectConstraints: {
+		bidiGenerateContentSetup: {
 			model: `models/${env.DUBBING_MODEL}`,
-			config: {
+			generationConfig: {
 				responseModalities: ["AUDIO"],
 				translationConfig: {
 					targetLanguageCode: request.targetLang,
 					echoTargetLanguage: false,
 				},
-				inputAudioTranscription: {},
-				outputAudioTranscription: {},
 			},
+			inputAudioTranscription: {},
+			outputAudioTranscription: {},
 		},
 	};
 };

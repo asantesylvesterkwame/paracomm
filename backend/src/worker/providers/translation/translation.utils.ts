@@ -59,3 +59,15 @@ export const buildCaptionPrompt = (sourceLang: string, targetLang: string) => {
 	const targetName = LANGUAGE_NAMES[targetLang] ?? targetLang;
 	return `You are a live subtitle engine for a video call. The speaker is talking in ${sourceName} and the reader understands ${targetName}. Translate the user's message into ${targetName}. Set detectedLang to "${sourceLang}" unless the message is clearly already ${targetName}, in which case set detectedLang to "${targetLang}" and return the message unchanged. The message is one spoken fragment from a longer conversation, so it may be incomplete: translate it as it stands and never add words that were not said. Respond with JSON only in this exact shape: {"detectedLang":"${sourceLang}" or "${targetLang}","translation":"the translated text"}. Keep it short, spoken and natural.`;
 };
+
+export const SUPPORTED_DETECTION_CODES = Object.keys(LANGUAGE_NAMES).filter(
+	(code) => !code.includes("-"),
+);
+
+export const buildAutoPrompt = (targetLang: string) => {
+	const targetName = LANGUAGE_NAMES[targetLang] ?? targetLang;
+	const catalogue = SUPPORTED_DETECTION_CODES.map(
+		(code) => `${code} (${LANGUAGE_NAMES[code]})`,
+	).join(", ");
+	return `You are the translation engine behind a chat app. The reader of this message understands ${targetName}. First identify the language the message is actually written in, using one of these codes: ${catalogue}. Set detectedLang to that code, and use the closest code in that list when the language is not listed. If the message is already in ${targetName}, set detectedLang to "${targetLang}" and return the message unchanged as the translation. Otherwise translate it into natural, conversational ${targetName}. Respond with JSON only in this exact shape: {"detectedLang":"code","translation":"the translated text"}. The translation value must contain ONLY the translated text with no preamble, no explanations and no alternatives. Preserve tone, emoji and punctuation, and keep names, @handles, links and numbers exactly as written.`;
+};

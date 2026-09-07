@@ -7,12 +7,22 @@ import { verifyWsToken } from "../../utils/auth";
 import { UserEvents } from "../../utils/userEvents";
 import { generalMessages } from "../../core/messages";
 import type { AppEnv } from "../../core/types";
-import type { IUpdateMeBody, ISearchUsersQuery } from "./user.validation";
+import type {
+	IUpdateMeBody,
+	ISearchUsersQuery,
+	IGetMeQuery,
+} from "./user.validation";
 
 type UpdateMeContext = Context<
 	AppEnv,
 	string,
 	{ in: { json: IUpdateMeBody }; out: { json: IUpdateMeBody } }
+>;
+
+type GetMeContext = Context<
+	AppEnv,
+	string,
+	{ in: { query: IGetMeQuery }; out: { query: IGetMeQuery } }
 >;
 
 type SearchUsersContext = Context<
@@ -21,10 +31,12 @@ type SearchUsersContext = Context<
 	{ in: { query: ISearchUsersQuery }; out: { query: ISearchUsersQuery } }
 >;
 
-export const getMeController = async (c: Context<AppEnv>) => {
+export const getMeController = async (c: GetMeContext) => {
 	const actor = c.get("actor");
 	const clerk = c.get("clerk");
-	const result = await UserService.getMe(c.env, actor, clerk);
+	const locale =
+		c.req.valid("query").locale ?? c.req.header("accept-language") ?? null;
+	const result = await UserService.getMe(c.env, actor, clerk, locale);
 	if (!result.success) {
 		throw new AppError(result.message, StatusCodes.NOT_FOUND);
 	}

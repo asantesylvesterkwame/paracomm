@@ -1,7 +1,9 @@
-import { useEffect, useRef } from "react";
-import { DailyProvider, useCallObject } from "@daily-co/daily-react";
+import { useCallback } from "react";
+import { DailyProvider } from "@daily-co/daily-react";
 import { notify } from "@/utils";
 import { useAuthContext } from "@/files/auth/auth.context";
+import useDailyCallObject from "../hooks/useDailyCallObject";
+import { callJoinErrorDescription } from "../call.utils";
 import CallRuntime from "./CallRuntime";
 import type { ICallCredentials } from "../call.interface";
 
@@ -27,34 +29,25 @@ const CallSession = ({
   onLeave,
 }: CallSessionProps) => {
   const { profile } = useAuthContext();
-  const callObject = useCallObject({ options: {} });
-  const hasJoinedRef = useRef(false);
 
-  useEffect(() => {
-    if (!callObject || hasJoinedRef.current) return;
-    hasJoinedRef.current = true;
-    callObject
-      .join({
-        url: credentials.roomUrl,
-        token: credentials.token,
-        userName: profile?.displayName ?? profile?.username ?? "Paracomm user",
-      })
-      .catch(() => {
-        notify({
-          type: "error",
-          message: "We could not connect that call",
-          description:
-            "Check your camera and microphone permissions, then try again.",
-        });
-        onLeave();
+  const handleJoinError = useCallback(
+    (error: unknown) => {
+      notify({
+        type: "error",
+        message: "We could not connect that call",
+        description: callJoinErrorDescription(error),
       });
-  }, [callObject, credentials.roomUrl, credentials.token, onLeave, profile]);
+      onLeave();
+    },
+    [onLeave],
+  );
 
-  useEffect(() => {
-    return () => {
-      callObject?.leave().catch(() => undefined);
-    };
-  }, [callObject]);
+  const callObject = useDailyCallObject({
+    roomUrl: credentials.roomUrl,
+    token: credentials.token,
+    userName: profile?.displayName ?? profile?.username ?? "Paracomm user",
+    onJoinError: handleJoinError,
+  });
 
   if (!callObject) return null;
 

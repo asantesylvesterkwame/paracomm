@@ -39,3 +39,22 @@ export const callElapsedSeconds = (
   const end = endedAt ? new Date(endedAt).getTime() : Date.now();
   return Math.max(0, Math.round((end - start) / 1000));
 };
+
+const PERMISSION_HINT =
+  "Check your camera and microphone permissions, then try again.";
+
+export const callJoinErrorDescription = (error: unknown) => {
+  if (typeof error === "string" && error.trim()) return error;
+  if (error && typeof error === "object") {
+    const candidate = error as { errorMsg?: unknown; message?: unknown };
+    const text =
+      typeof candidate.errorMsg === "string"
+        ? candidate.errorMsg
+        : typeof candidate.message === "string"
+          ? candidate.message
+          : "";
+    if (/permission|denied|notallowed/i.test(text)) return PERMISSION_HINT;
+    if (text.trim()) return text;
+  }
+  return PERMISSION_HINT;
+};

@@ -1,7 +1,6 @@
 import MessageRepository from "./message.repository";
 import RoomRepository from "../room/room.repository";
 import { UserUtils } from "../user/user.utils";
-import { normalizeLang } from "./message.utils";
 import { messageMessages } from "./message.messages";
 import { roomMessages } from "../room/room.messages";
 import { userMessages } from "../user/user.messages";
@@ -12,6 +11,11 @@ import {
 	checkAndConsumeUserDailyChars,
 } from "../../utils/quota";
 import { decodeCursor, encodeCursor } from "../../utils/pagination";
+import {
+	isSameLang,
+	isSupportedReadingLang,
+	normalizeLang,
+} from "../../utils/language";
 import type { IActor } from "../../utils/auth";
 import type { IMessageRow } from "./message.model";
 import type {
@@ -19,6 +23,14 @@ import type {
 	IListMessagesQuery,
 	IMarkSeenBody,
 } from "./message.validation";
+
+interface ITranslationChanges {
+	originalLang?: string;
+	translatedText?: string | null;
+	translatedLang?: string | null;
+	translationStatus: "none" | "done" | "failed";
+	translationError?: string | null;
+}
 
 class MessageService {
 	static async sendMessage(
@@ -60,8 +72,6 @@ class MessageService {
 			return { success: false as const, message: roomMessages.NOT_A_MEMBER };
 		}
 		const recipient = membership.otherUser;
-		const skipTranslation =
-			normalizeLang(me.preferredLang) === normalizeLang(recipient.preferredLang);
 		const now = new Date();
 		let message: IMessageRow;
 		try {
@@ -72,7 +82,7 @@ class MessageService {
 				senderId: me.id,
 				originalText: body.text,
 				originalLang: me.preferredLang,
-				translationStatus: skipTranslation ? "none" : "pending",
+				translationStatus: "pending",
 				createdAt: now,
 				updatedAt: now,
 			});
@@ -89,11 +99,9 @@ class MessageService {
 		}
 		await RoomRepository.touchLastMessageAt(env, roomId, now);
 		await RoomEvents.emit(env, roomId, "message:new", message);
-		if (!skipTranslation) {
-			ctx.waitUntil(
-				MessageService.translateMessage(env, message, recipient.preferredLang),
-			);
-		}
+		ctx.waitUntil(
+			MessageService.translateMessage(env, message, recipient.preferredLang),
+		);
 		return {
 			success: true as const,
 			message: messageMessages.MESSAGE_SENT,
@@ -123,16 +131,21 @@ class MessageService {
 				const outcome = await provider.translate(
 					env,
 					message.originalText,
-					message.originalLang,
+					null,
 					targetLang,
+					{ mode: "auto" },
 				);
 				if (outcome.ok) {
-					await MessageService.finishTranslation(env, message, {
-						translatedText: outcome.text,
-						translatedLang: targetLang,
-						translationStatus: "done",
-						translationError: null,
-					});
+					await MessageService.finishTranslation(
+						env,
+						message,
+						MessageService.translationChangesOf(
+							message,
+							outcome.text,
+							outcome.detectedLang,
+							targetLang,
+						),
+					);
 					return;
 				}
 				console.error(
@@ -153,15 +166,37 @@ class MessageService {
 		}
 	}
 
+	static translationChangesOf(
+		message: IMessageRow,
+		translatedText: string,
+		detectedLang: string | undefined,
+		targetLang: string,
+	): ITranslationChanges {
+		const originalLang = isSupportedReadingLang(detectedLang)
+			? normalizeLang(detectedLang as string)
+			: message.originalLang;
+		if (isSameLang(originalLang, targetLang)) {
+			return {
+				originalLang,
+				translatedText: null,
+				translatedLang: null,
+				translationStatus: "none",
+				translationError: null,
+			};
+		}
+		return {
+			originalLang,
+			translatedText,
+			translatedLang: targetLang,
+			translationStatus: "done",
+			translationError: null,
+		};
+	}
+
 	static async finishTranslation(
 		env: Env,
 		message: IMessageRow,
-		changes: {
-			translatedText?: string;
-			translatedLang?: string;
-			translationStatus: "done" | "failed";
-			translationError?: string | null;
-		},
+		changes: ITranslationChanges,
 	) {
 		const updated = await MessageRepository.update(env, message.id, changes);
 		if (updated) {

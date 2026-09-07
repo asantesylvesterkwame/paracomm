@@ -7,8 +7,10 @@ import ButtonElement from "@/components/elements/ButtonElement";
 import { SPRING } from "@/lib/motion";
 import { cn } from "@/lib/utils";
 import { languageLabelOf } from "@/constants/languages.constants";
+import useDelayedFlag from "@/hooks/useDelayedFlag";
 import CallEntry from "@/components/common/CallEntry";
 import MessageStatus from "./MessageStatus";
+import { TRANSLATING_HINT_DELAY_MS } from "../message.constants";
 import type { IClientMessage } from "../message.interface";
 
 interface MessageBubbleProps {
@@ -27,6 +29,12 @@ const MessageBubble = ({
   onRetryTranslation,
 }: MessageBubbleProps) => {
   const [showOriginal, setShowOriginal] = useState(false);
+  const isTranslationPending =
+    !isOwn && message.kind !== "call" && message.translationStatus === "pending";
+  const isTranslating = useDelayedFlag(
+    isTranslationPending,
+    TRANSLATING_HINT_DELAY_MS,
+  );
 
   if (message.kind === "call") {
     return (
@@ -39,7 +47,6 @@ const MessageBubble = ({
   }
 
   const isTranslated = !isOwn && message.translationStatus === "done";
-  const isTranslating = !isOwn && message.translationStatus === "pending";
   const translationFailed = !isOwn && message.translationStatus === "failed";
   const displayText =
     isTranslated && message.translatedText

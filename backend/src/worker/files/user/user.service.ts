@@ -1,6 +1,8 @@
 import UserRepository from "./user.repository";
+import type { IUser } from "./user.model";
 import { userMessages } from "./user.messages";
 import { decodeCursor, encodeCursor } from "../../utils/pagination";
+import { resolveReadingLang } from "../../utils/language";
 import type { IActor } from "../../utils/auth";
 import type { IUpdateMeBody, ISearchUsersQuery } from "./user.validation";
 
@@ -16,16 +18,22 @@ interface IClerkUserReader {
 }
 
 class UserService {
-	static async getMe(env: Env, actor: IActor, clerk: IClerkUserReader) {
+	static async getMe(
+		env: Env,
+		actor: IActor,
+		clerk: IClerkUserReader,
+		locale?: string | null,
+	) {
 		const existing = await UserRepository.fetchOneByClerkId(
 			env,
 			actor.clerkId,
 		);
 		if (existing) {
+			const seeded = await UserService.seedReadingLang(env, existing, locale);
 			return {
 				success: true as const,
 				message: userMessages.PROFILE_FETCHED,
-				data: { user: existing, isNew: false },
+				data: { user: seeded, isNew: false },
 			};
 		}
 		const clerkUser = await clerk.users.getUser(actor.clerkId);
@@ -42,6 +50,7 @@ class UserService {
 					clerkUser.username ||
 					"New user",
 				avatarUrl: clerkUser.imageUrl,
+				preferredLang: resolveReadingLang(locale),
 				createdAt: now,
 				updatedAt: now,
 			});
@@ -67,6 +76,22 @@ class UserService {
 				message: userMessages.PROFILE_MISSING,
 			};
 		}
+	}
+
+	static async seedReadingLang(
+		env: Env,
+		user: IUser,
+		locale?: string | null,
+	): Promise<IUser> {
+		const hasChosen =
+			user.updatedAt.getTime() !== user.createdAt.getTime();
+		if (hasChosen) return user;
+		const resolved = resolveReadingLang(locale);
+		if (resolved === user.preferredLang) return user;
+		const updated = await UserRepository.update(env, user.id, {
+			preferredLang: resolved,
+		});
+		return updated ?? user;
 	}
 
 	static async updateMe(env: Env, body: IUpdateMeBody, actor: IActor) {

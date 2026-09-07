@@ -1,4 +1,4 @@
-export type ITranslationMode = "chat" | "caption";
+export type ITranslationMode = "chat" | "caption" | "auto";
 
 export interface ITranslationOptions {
 	mode?: ITranslationMode;
@@ -13,7 +13,7 @@ export interface ITranslationProvider {
 	translate(
 		env: Env,
 		text: string,
-		sourceLang: string,
+		sourceLang: string | null,
 		targetLang: string,
 		options?: ITranslationOptions,
 	): Promise<ITranslationOutcome>;

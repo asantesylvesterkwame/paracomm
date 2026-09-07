@@ -6,7 +6,7 @@ export const EchoProvider: ITranslationProvider = {
 		return {
 			ok: true,
 			text: `[dev echo ${targetLang}] ${text}`,
-			detectedLang: sourceLang,
+			detectedLang: sourceLang ?? undefined,
 		};
 	},
 };

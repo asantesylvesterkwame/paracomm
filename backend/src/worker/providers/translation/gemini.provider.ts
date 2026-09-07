@@ -1,16 +1,39 @@
-import type { ITranslationProvider } from "./translation.provider";
-import { buildCaptionPrompt, buildTranslationPrompt } from "./translation.utils";
+import type { ITranslationProvider, ITranslationMode } from "./translation.provider";
+import {
+	buildAutoPrompt,
+	buildCaptionPrompt,
+	buildTranslationPrompt,
+	SUPPORTED_DETECTION_CODES,
+} from "./translation.utils";
 
 interface IGeminiResponse {
 	candidates?: { content?: { parts?: { text?: string }[] } }[];
 	promptFeedback?: { blockReason?: string };
 }
 
+const promptFor = (
+	mode: ITranslationMode,
+	sourceLang: string | null,
+	targetLang: string,
+) => {
+	if (mode === "auto" || !sourceLang) return buildAutoPrompt(targetLang);
+	if (mode === "caption") return buildCaptionPrompt(sourceLang, targetLang);
+	return buildTranslationPrompt(sourceLang, targetLang);
+};
+
+const detectionEnumFor = (
+	mode: ITranslationMode,
+	sourceLang: string | null,
+	targetLang: string,
+) =>
+	mode === "auto" || !sourceLang
+		? SUPPORTED_DETECTION_CODES
+		: [sourceLang, targetLang];
+
 export const GeminiProvider: ITranslationProvider = {
 	name: "gemini",
 	async translate(env, text, sourceLang, targetLang, options) {
-		const buildPrompt =
-			options?.mode === "caption" ? buildCaptionPrompt : buildTranslationPrompt;
+		const mode = options?.mode ?? "chat";
 		const response = await fetch(
 			`https://generativelanguage.googleapis.com/v1beta/models/${env.TRANSLATION_MODEL}:generateContent`,
 			{
@@ -21,7 +44,7 @@ export const GeminiProvider: ITranslationProvider = {
 				},
 				body: JSON.stringify({
 					system_instruction: {
-						parts: [{ text: buildPrompt(sourceLang, targetLang) }],
+						parts: [{ text: promptFor(mode, sourceLang, targetLang) }],
 					},
 					contents: [{ role: "user", parts: [{ text }] }],
 					generationConfig: {
@@ -31,7 +54,10 @@ export const GeminiProvider: ITranslationProvider = {
 						responseSchema: {
 							type: "OBJECT",
 							properties: {
-								detectedLang: { type: "STRING", enum: [sourceLang, targetLang] },
+								detectedLang: {
+									type: "STRING",
+									enum: detectionEnumFor(mode, sourceLang, targetLang),
+								},
 								translation: { type: "STRING" },
 							},
 							required: ["detectedLang", "translation"],
@@ -68,7 +94,7 @@ export const GeminiProvider: ITranslationProvider = {
 				detectedLang: parsed.detectedLang,
 			};
 		} catch {
-			return { ok: true, text: raw, detectedLang: sourceLang };
+			return { ok: true, text: raw, detectedLang: sourceLang ?? undefined };
 		}
 	},
 };

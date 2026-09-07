@@ -13,6 +13,7 @@ export const TYPING_CLEAR_MS = 5000;
 export const MAX_MESSAGE_CHARS = 2000;
 export const TEMP_ID_PREFIX = "temp_";
 export const QUEUE_RETRY_DELAY_MS = 800;
+export const TRANSLATING_HINT_DELAY_MS = 500;
 
 export const SEND_ERROR_COPY = {
   network: "No connection. This will send when you are back",

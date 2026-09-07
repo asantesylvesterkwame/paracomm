@@ -1,6 +1,6 @@
 import { Hono } from "hono";
 import { zValidator } from "@hono/zod-validator";
-import { updateMe, searchUsers } from "./user.validation";
+import { getMe, updateMe, searchUsers } from "./user.validation";
 import {
 	getMeController,
 	updateMeController,
@@ -17,7 +17,11 @@ userRoutes.get("/me/ws", userSocketController);
 
 userRoutes.use("*", isAuthenticated);
 
-userRoutes.get("/me", getMeController);
+userRoutes.get(
+	"/me",
+	zValidator("query", getMe, validationHook),
+	getMeController,
+);
 
 userRoutes.patch(
 	"/me",

@@ -3,6 +3,8 @@ import { motion } from "motion/react";
 import AvatarElement from "@/components/elements/AvatarElement";
 import BadgeElement from "@/components/elements/BadgeElement";
 import ShimmerTextElement from "@/components/elements/ShimmerTextElement";
+import useDelayedFlag from "@/hooks/useDelayedFlag";
+import { TRANSLATING_HINT_DELAY_MS } from "@/files/message/message.constants";
 import { SPRING } from "@/lib/motion";
 import { cn } from "@/lib/utils";
 import { formatTimeAgo } from "@/utils";
@@ -22,6 +24,10 @@ const RoomListItem = ({
 }) => {
   const name = roomNameOf(room);
   const preview = roomPreviewOf(room, myUserId);
+  const isTranslating = useDelayedFlag(
+    preview.isTranslating,
+    TRANSLATING_HINT_DELAY_MS,
+  );
 
   const body = (
     <>
@@ -37,7 +43,7 @@ const RoomListItem = ({
         </span>
         <span className="flex items-center justify-between gap-2">
           <span className="truncate text-sm text-muted-foreground">
-            {preview.isTranslating || room.isPending ? (
+            {isTranslating || room.isPending ? (
               <ShimmerTextElement>{preview.text}</ShimmerTextElement>
             ) : (
               <>

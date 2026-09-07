@@ -33,3 +33,26 @@ export const PREFERRED_LANGUAGES: readonly ILanguageChoice[] = [
 
 export const languageLabelOf = (code: string) =>
   PREFERRED_LANGUAGES.find((language) => language.code === code)?.label ?? code;
+
+export const DEFAULT_READING_LANG = "en";
+
+const SUPPORTED_READING_LANGS = new Set(
+  PREFERRED_LANGUAGES.map((language) => language.code),
+);
+
+export const normalizeLang = (lang: string) =>
+  lang.trim().toLowerCase().split("-")[0];
+
+export const resolveReadingLang = (locale?: string | null) => {
+  if (!locale) return DEFAULT_READING_LANG;
+  const base = normalizeLang(locale);
+  return SUPPORTED_READING_LANGS.has(base) ? base : DEFAULT_READING_LANG;
+};
+
+export const browserLocales = () => {
+  if (typeof navigator === "undefined") return DEFAULT_READING_LANG;
+  const locales = navigator.languages?.length
+    ? navigator.languages
+    : [navigator.language];
+  return locales.filter(Boolean).slice(0, 5).join(",");
+};

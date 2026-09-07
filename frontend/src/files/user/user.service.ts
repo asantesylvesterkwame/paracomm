@@ -1,4 +1,5 @@
 import { PARACOMM_API } from "@/api";
+import { browserLocales } from "@/constants/languages.constants";
 import type { IApiResult } from "@/interfaces/api.interface";
 import type {
   IProfileData,
@@ -9,7 +10,9 @@ import type {
 
 class UserService {
   static async getMe(): Promise<IApiResult<IProfileData>> {
-    const response = await PARACOMM_API.get("/users/me");
+    const response = await PARACOMM_API.get("/users/me", {
+      params: { locale: browserLocales() },
+    });
     return response.data;
   }
 

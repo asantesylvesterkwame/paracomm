@@ -113,7 +113,7 @@ class MessageService {
 		env: Env,
 		message: IMessageRow,
 		targetLang: string,
-	) {
+	): Promise<IMessageRow | null> {
 		try {
 			const quota = await checkAndConsumeUserDailyChars(
 				env,
@@ -121,11 +121,10 @@ class MessageService {
 				message.originalText.length,
 			);
 			if (!quota.allowed) {
-				await MessageService.finishTranslation(env, message, {
+				return MessageService.finishTranslation(env, message, {
 					translationStatus: "failed",
 					translationError: "quota",
 				});
-				return;
 			}
 			for (const provider of getTranslationProviders(env)) {
 				const outcome = await provider.translate(
@@ -136,7 +135,7 @@ class MessageService {
 					{ mode: "auto" },
 				);
 				if (outcome.ok) {
-					await MessageService.finishTranslation(
+					return MessageService.finishTranslation(
 						env,
 						message,
 						MessageService.translationChangesOf(
@@ -146,20 +145,19 @@ class MessageService {
 							targetLang,
 						),
 					);
-					return;
 				}
 				console.error(
 					`chat translation provider ${provider.name} failed`,
 					outcome.error,
 				);
 			}
-			await MessageService.finishTranslation(env, message, {
+			return MessageService.finishTranslation(env, message, {
 				translationStatus: "failed",
 				translationError: "provider",
 			});
 		} catch (error) {
 			console.error("chat translation crashed", error);
-			await MessageService.finishTranslation(env, message, {
+			return MessageService.finishTranslation(env, message, {
 				translationStatus: "failed",
 				translationError: "provider",
 			});
@@ -200,8 +198,20 @@ class MessageService {
 	) {
 		const updated = await MessageRepository.update(env, message.id, changes);
 		if (updated) {
-			await RoomEvents.emit(env, message.roomId, "message:updated", updated);
+			await RoomEvents.emit(
+				env,
+				message.roomId,
+				"message:updated",
+				await MessageService.toPayload(env, updated),
+			);
 		}
+		return updated;
+	}
+
+	static toPayload(env: Env, message: IMessageRow) {
+		return message.kind === "voice"
+			? MessageRepository.withVoiceNote(env, message)
+			: Promise.resolve(message);
 	}
 
 	static async listMessages(
@@ -219,8 +229,9 @@ class MessageService {
 			return { success: false as const, message: roomMessages.NOT_A_MEMBER };
 		}
 		const cursor = query.cursor ? decodeCursor(query.cursor) : null;
-		const items = await MessageRepository.fetchPage(env, roomId, cursor);
-		const last = items[items.length - 1];
+		const rows = await MessageRepository.fetchPage(env, roomId, cursor);
+		const items = await MessageRepository.withVoiceNotes(env, rows);
+		const last = rows[rows.length - 1];
 		return {
 			success: true as const,
 			message: messageMessages.MESSAGES_FETCHED,
@@ -300,7 +311,10 @@ class MessageService {
 				message: messageMessages.MESSAGE_NOT_FOUND,
 			};
 		}
-		if (target.translationStatus !== "failed") {
+		if (
+			target.translationStatus !== "failed" ||
+			(target.kind === "voice" && target.translationError === "transcription")
+		) {
 			return {
 				success: false as const,
 				message: messageMessages.TRANSLATION_NOT_FAILED,
@@ -315,13 +329,18 @@ class MessageService {
 			translationError: null,
 		});
 		if (pending) {
-			await RoomEvents.emit(env, roomId, "message:updated", pending);
+			await RoomEvents.emit(
+				env,
+				roomId,
+				"message:updated",
+				await MessageService.toPayload(env, pending),
+			);
 			ctx.waitUntil(MessageService.translateMessage(env, pending, targetLang));
 		}
 		return {
 			success: true as const,
 			message: messageMessages.TRANSLATION_RETRYING,
-			data: pending,
+			data: pending ? await MessageService.toPayload(env, pending) : pending,
 		};
 	}
 }

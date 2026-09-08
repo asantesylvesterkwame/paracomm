@@ -8,6 +8,7 @@ interface ProgressElementProps {
   value: number;
   className?: string;
   indicatorClassName?: string;
+  trackClassName?: string;
   label?: string;
 }
 
@@ -15,6 +16,7 @@ const ProgressElement: React.FC<ProgressElementProps> = ({
   value,
   className,
   indicatorClassName,
+  trackClassName,
   label,
 }) => (
   <Progress
@@ -22,6 +24,7 @@ const ProgressElement: React.FC<ProgressElementProps> = ({
     aria-label={label}
     className={cn(className)}
     indicatorClassName={indicatorClassName}
+    trackClassName={trackClassName}
   />
 );
 

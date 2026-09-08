@@ -251,6 +251,7 @@ export const COMPONENT_PATHS: ComponentPath[] = [
   { path: "src/components/elements/ModalElement.tsx", role: "Image lightbox dialog wrapping any trigger children" },
   { path: "src/components/elements/DialogElement.tsx", role: "Re-exports the ui Dialog family" },
   { path: "src/components/elements/SheetElement.tsx", role: "Controlled side sheet with title + description header" },
+  { path: "src/components/elements/PopoverElement.tsx", role: "Anchored popover with optional title, spring scale and blur enter/exit" },
   { path: "src/components/elements/LabelElement.tsx", role: "Label wrapper" },
   { path: "src/components/elements/TextareaElement.tsx", role: "Textarea wrapper" },
   { path: "src/components/elements/ToggleElement.tsx", role: "Pressed-state toggle with tooltip label; surface/danger variants and the size-12 control size used by call controls" },

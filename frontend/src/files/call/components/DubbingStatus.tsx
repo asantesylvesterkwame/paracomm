@@ -17,6 +17,9 @@ const BAR_DELAYS = [0, 0.15, 0.3];
 const labelFor = (state: DubbingState, targetLang: string) => {
   if (state === "connecting") return DUBBING_COPY.CONNECTING;
   if (state === "reconnecting") return DUBBING_COPY.RECONNECTING;
+  if (state === "switching") {
+    return `${DUBBING_COPY.SWITCHING} ${languageLabelOf(targetLang)}`;
+  }
   if (state === "limited") return DUBBING_COPY.LIMITED;
   return `${DUBBING_COPY.LIVE} · ${languageLabelOf(targetLang)}`;
 };
@@ -24,7 +27,9 @@ const labelFor = (state: DubbingState, targetLang: string) => {
 const DubbingStatus = ({ state, targetLang, className }: DubbingStatusProps) => {
   const isHidden = state === "off" || state === "unavailable";
   const isSpeaking = state === "speaking";
-  const isPending = state === "connecting" || state === "reconnecting";
+  const isPending =
+    state === "connecting" || state === "reconnecting" || state === "switching";
+  const label = labelFor(state, targetLang);
 
   return (
     <AnimatePresence>
@@ -60,7 +65,17 @@ const DubbingStatus = ({ state, targetLang, className }: DubbingStatusProps) => 
               className={cn("size-3", isPending && "animate-pulse")}
             />
           )}
-          {labelFor(state, targetLang)}
+          <AnimatePresence mode="wait" initial={false}>
+            <motion.span
+              key={label}
+              initial={{ opacity: 0, y: 3 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -3 }}
+              transition={SPRING.snappy}
+            >
+              {label}
+            </motion.span>
+          </AnimatePresence>
         </motion.span>
       )}
     </AnimatePresence>

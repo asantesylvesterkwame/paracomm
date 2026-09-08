@@ -1,5 +1,10 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { base64ToArrayBuffer, pcm16ToFloat32 } from "@/utils/audio";
+import { createLogger } from "@/utils/logger";
+
+const logger = createLogger("pcm-player");
+
+const PUSH_LOG_EVERY = 25;
 
 interface UsePcmPlayerOptions {
   sampleRate: number;
@@ -17,10 +22,12 @@ const usePcmPlayer = ({
   const nextStartRef = useRef(0);
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const isSpeakingRef = useRef(false);
+  const pushesRef = useRef(0);
   const [isSpeaking, setIsSpeaking] = useState(false);
 
   const setSpeaking = useCallback((value: boolean) => {
     if (isSpeakingRef.current === value) return;
+    logger.log("speaking", value);
     isSpeakingRef.current = value;
     setIsSpeaking(value);
   }, []);
@@ -43,6 +50,7 @@ const usePcmPlayer = ({
   }, [setSpeaking, stopPolling, tailSeconds]);
 
   const flush = useCallback(() => {
+    logger.log("flush", { pending: sourcesRef.current.size });
     for (const source of sourcesRef.current) {
       try {
         source.onended = null;
@@ -61,12 +69,22 @@ const usePcmPlayer = ({
     (base64: string) => {
       if (!contextRef.current) {
         contextRef.current = new AudioContext();
+        logger.log("audio context created", {
+          sampleRate: contextRef.current.sampleRate,
+          state: contextRef.current.state,
+        });
       }
       const context = contextRef.current;
-      if (context.state === "suspended") void context.resume();
+      if (context.state === "suspended") {
+        logger.warn("audio context suspended, resuming");
+        void context.resume();
+      }
 
       const samples = pcm16ToFloat32(base64ToArrayBuffer(base64));
-      if (samples.length === 0) return;
+      if (samples.length === 0) {
+        logger.warn("empty audio chunk ignored");
+        return;
+      }
 
       const buffer = context.createBuffer(1, samples.length, sampleRate);
       buffer.copyToChannel(samples, 0);
@@ -79,6 +97,18 @@ const usePcmPlayer = ({
       const startAt = Math.max(nextStartRef.current, earliest);
       source.start(startAt);
       nextStartRef.current = startAt + buffer.duration;
+
+      pushesRef.current += 1;
+      if (pushesRef.current === 1 || pushesRef.current % PUSH_LOG_EVERY === 0) {
+        logger.log("audio scheduled", {
+          pushes: pushesRef.current,
+          samples: samples.length,
+          durationMs: Math.round(buffer.duration * 1000),
+          startAt: Number(startAt.toFixed(3)),
+          contextTime: Number(context.currentTime.toFixed(3)),
+          contextState: context.state,
+        });
+      }
 
       sourcesRef.current.add(source);
       source.onended = () => {

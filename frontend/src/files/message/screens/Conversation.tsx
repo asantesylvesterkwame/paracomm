@@ -24,6 +24,7 @@ import { useAuthContext } from "@/files/auth/auth.context";
 import { useRoomSocket } from "@/context/RoomSocketContext";
 import useRoomMessages from "../hooks/useRoomMessages";
 import useMessage from "../useMessage";
+import useVoiceNote from "../voice-note/useVoiceNote";
 import { isSeenMessage } from "../message.utils";
 import MessageBubble from "../components/MessageBubble";
 import MessageComposer from "../components/MessageComposer";
@@ -58,12 +59,19 @@ const Conversation = () => {
     draft,
     setDraft,
     send,
+    sendVoiceNote,
+    dismissMessage,
     retrySend,
     retryTranslation,
     markSeen,
     emitTyping,
     stopTyping,
   } = useMessage(roomId);
+  const { recorder, requestDub, requestingDubFor } = useVoiceNote({
+    roomId,
+    onRecording: sendVoiceNote,
+  });
+  const myLang = profile?.preferredLang ?? "en";
 
   const latestIncoming = useMemo(
     () =>
@@ -193,8 +201,12 @@ const Conversation = () => {
                       seen.lastSeenMessageId,
                       seen.lastSeenAt,
                     )}
+                    myLang={myLang}
+                    requestingDubFor={requestingDubFor}
                     onRetrySend={retrySend}
                     onRetryTranslation={retryTranslation}
+                    onDismiss={dismissMessage}
+                    onRequestDub={requestDub}
                   />
                 </MessageScrollerItem>
               ))}
@@ -221,6 +233,7 @@ const Conversation = () => {
         onSend={send}
         onTyping={emitTyping}
         onStopTyping={stopTyping}
+        recorder={recorder}
       />
     </motion.div>
   );

@@ -74,6 +74,12 @@ export interface ICaptionWireMessage {
   lang: string;
 }
 
+export interface ILangWireMessage {
+  kind: "paracomm-lang";
+  lang: string;
+  seq: number;
+}
+
 export type CallPhase = "idle" | "incoming" | "active";
 
 export interface CallContextType {
@@ -94,4 +100,5 @@ export interface CallContextType {
   setIsMinimized: (value: boolean) => void;
   setIsCaptionsOn: (value: boolean) => void;
   setIsDubbingOn: (value: boolean) => void;
+  updateOtherUserLang: (lang: string) => void;
 }

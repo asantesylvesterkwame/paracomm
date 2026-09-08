@@ -1,10 +1,12 @@
+import type { IVoiceNote } from "./voice-note/voice-note.interface";
+
 export type TranslationStatus = "none" | "pending" | "done" | "failed";
 
 export type ClientMessageStatus = "sending" | "failed";
 
 export type ClientMessageError = "network" | "rate" | "fatal";
 
-export type MessageKind = "text" | "call";
+export type MessageKind = "text" | "call" | "voice";
 
 export interface IMessage {
   id: string;
@@ -13,6 +15,8 @@ export interface IMessage {
   senderId: string;
   kind: MessageKind;
   callId: string | null;
+  voiceNoteId: string | null;
+  voiceNote?: IVoiceNote | null;
   originalText: string;
   originalLang: string;
   translatedText: string | null;
@@ -26,6 +30,7 @@ export interface IMessage {
 export interface IClientMessage extends IMessage {
   clientStatus?: ClientMessageStatus;
   clientError?: ClientMessageError;
+  localAudioUrl?: string;
 }
 
 export interface IMessagesData {

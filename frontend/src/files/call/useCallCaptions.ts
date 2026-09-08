@@ -48,6 +48,7 @@ const useCallCaptions = ({
   const [remoteInterim, setRemoteInterim] = useState("");
 
   const seqRef = useRef(0);
+  const captionsRef = useRef<ICaption[]>([]);
   const isDubbingActiveRef = useRef(isDubbingActive);
   const wasLocalActiveRef = useRef(false);
   const remoteInterimTimerRef = useRef<ReturnType<typeof setTimeout> | null>(
@@ -59,8 +60,13 @@ const useCallCaptions = ({
   }, [isDubbingActive]);
 
   const myLang = profile?.preferredLang ?? "en";
+  const previousLangRef = useRef(myLang);
   const isSupported = useMemo(() => isCaptionSupported(), []);
   const dictationLocale = useMemo(() => dictationLocaleOf(myLang), [myLang]);
+
+  useEffect(() => {
+    captionsRef.current = captions;
+  }, [captions]);
 
   const upsertCaption = useCallback(
     (id: string, changes: Partial<ICaption>) => {
@@ -128,6 +134,24 @@ const useCallCaptions = ({
     process: translateCaption,
     onAbort: handleAbort,
   });
+
+  useEffect(() => {
+    if (previousLangRef.current === myLang) return;
+    previousLangRef.current = myLang;
+    const stale = captionsRef.current.filter(
+      (caption) => !caption.isOwn && caption.originalLang !== myLang,
+    );
+    setCaptions((previous) =>
+      previous.map((caption) => {
+        if (caption.isOwn) return caption;
+        if (caption.originalLang === myLang) {
+          return { ...caption, translation: null, status: "untranslated" };
+        }
+        return { ...caption, status: "pending" };
+      }),
+    );
+    if (stale.length > 0) enqueue(stale);
+  }, [enqueue, myLang]);
 
   const receiveWireMessage = useCallback(
     (message: ICaptionWireMessage, sessionId: string) => {

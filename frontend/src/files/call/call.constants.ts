@@ -7,6 +7,10 @@ export const CALL_EVENTS = {
 
 export const CAPTION_WIRE_KIND = "paracomm-caption";
 
+export const LANG_WIRE_KIND = "paracomm-lang";
+
+export const LANG_SYNC_DEBOUNCE_MS = 300;
+
 export const CAPTION_HISTORY_LINES = 2;
 
 export const CAPTION_INTERIM_CLEAR_MS = 4000;
@@ -41,7 +45,13 @@ export const CALL_COPY = {
   EXPAND: "Back to call",
   RECONNECTING: "Reconnecting",
   WAITING: "Waiting for them to join",
+  HEAR_IN: "Hear them in",
+  HEAR_IN_HINT: "Subtitles and voice follow this language",
+  SUBTITLES_ONLY: "Subtitles only",
+  CHANGE_LANGUAGE: "Change the language you hear",
 } as const;
+
+export const hearingIn = (label: string) => `Now hearing ${label}`;
 
 export const CALL_ENTRY_COPY = {
   ringing: "Video call",

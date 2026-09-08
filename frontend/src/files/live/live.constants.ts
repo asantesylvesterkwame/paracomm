@@ -1,3 +1,4 @@
+import { TTS_UNSUPPORTED_LANGS } from "@/constants/languages.constants";
 import type { ILanguageOption } from "./live.interface";
 
 export const INPUT_LANGUAGES: readonly ILanguageOption[] = [
@@ -53,12 +54,7 @@ export const OUTPUT_LANGUAGES: readonly ILanguageOption[] = [
   { code: "am", label: "Amharic" },
 ];
 
-export const TTS_UNSUPPORTED_OUTPUT_LANGS: readonly string[] = [
-  "tw",
-  "ee",
-  "ha",
-  "yo",
-];
+export const TTS_UNSUPPORTED_OUTPUT_LANGS = TTS_UNSUPPORTED_LANGS;
 
 export const MAX_UTTERANCE_CHARS = 500;
 export const MAX_RECORDING_SECONDS = 60;

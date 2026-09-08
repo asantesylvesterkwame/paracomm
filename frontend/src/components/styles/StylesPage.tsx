@@ -19,6 +19,7 @@ import ProgressElement from "@/components/elements/ProgressElement";
 import SkeletonElement from "@/components/elements/SkeletonElement";
 import ModalElement from "@/components/elements/ModalElement";
 import SheetElement from "@/components/elements/SheetElement";
+import PopoverElement from "@/components/elements/PopoverElement";
 import LabelElement from "@/components/elements/LabelElement";
 import EmptyState from "@/components/common/EmptyState";
 import Logo from "@/components/common/Logo";
@@ -126,6 +127,14 @@ const sheetCode = `<SheetElement
 >
   {content}
 </SheetElement>`;
+
+const popoverCode = `<PopoverElement
+  title="Hear them in"
+  description="Subtitles and voice follow this language"
+  trigger={<ButtonElement variant="outline">English</ButtonElement>}
+>
+  {languageRows}
+</PopoverElement>`;
 
 const modalCode = `<ModalElement source={coverUrl} alt="Room cover">
   <img src={coverUrl} alt="Room cover" className="h-28 w-40 rounded-2xl object-cover" />
@@ -724,6 +733,41 @@ const StylesPage = () => {
                   />
                 </DivElement>
               </SheetElement>
+            </ComponentDemo>
+
+            <ComponentDemo
+              name="PopoverElement"
+              description="Anchored popover for short choices. Scales and unblurs from its anchor, falls back to a fade under reduced motion."
+              code={popoverCode}
+            >
+              <PopoverElement
+                title="Hear them in"
+                description="Subtitles and voice follow this language"
+                contentClassName="w-64 gap-3 p-3"
+                trigger={
+                  <ButtonElement variant="outline" type="button">
+                    <Globe2 className="size-4" />
+                    English
+                  </ButtonElement>
+                }
+              >
+                <DivElement className="gap-0.5">
+                  {["English", "French", "Spanish"].map((label, index) => (
+                    <ButtonElement
+                      key={label}
+                      variant="ghost"
+                      type="button"
+                      className={
+                        index === 0
+                          ? "h-10 justify-start rounded-xl bg-primary/12 px-3 text-primary hover:bg-primary/16 hover:text-primary"
+                          : "h-10 justify-start rounded-xl px-3 font-normal"
+                      }
+                    >
+                      {label}
+                    </ButtonElement>
+                  ))}
+                </DivElement>
+              </PopoverElement>
             </ComponentDemo>
 
             <ComponentDemo

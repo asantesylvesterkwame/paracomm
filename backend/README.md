@@ -94,3 +94,5 @@ npx wrangler tail
 - Local secrets live in `.dev.vars`: `GEMINI_API_KEY`, `CLERK_SECRET_KEY`, `CLERK_PUBLISHABLE_KEY`.
 - Production secret: `bun wrangler secret put CLERK_SECRET_KEY`. The publishable key is a non secret var in `wrangler.json`.
 - Migrations: `bun run db:generate` after schema changes, `bun run db:migrate:local` for dev, and `bun run db:migrate:remote` BEFORE `bun run deploy` whenever a release includes new tables or columns.
+- Media: voice notes and their dubs live in the `MEDIA` R2 bucket. Create it once per account with `bun wrangler r2 bucket create paracomm-media` before deploying; local dev needs nothing, miniflare creates it under `.wrangler/state`.
+- Bindings and vars: rerun `bun run cf-typegen` after editing `wrangler.json` and commit the regenerated `worker-configuration.d.ts`.

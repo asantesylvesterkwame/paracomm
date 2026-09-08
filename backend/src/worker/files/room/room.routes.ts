@@ -18,6 +18,16 @@ import {
 	retryTranslationController,
 } from "../message/message.controller";
 import { startCallController } from "../call/call.controller";
+import {
+	sendVoiceNote,
+	requestDub,
+	getVoiceNoteMedia,
+} from "../voice-note/voice-note.validation";
+import {
+	sendVoiceNoteController,
+	requestDubController,
+	streamVoiceNoteMediaController,
+} from "../voice-note/voice-note.controller";
 import { isAuthenticated } from "../../utils/auth";
 import { validationHook } from "../../utils/validation";
 import type { AppEnv } from "../../core/types";
@@ -57,6 +67,24 @@ roomRoutes.post(
 roomRoutes.post(
 	"/:roomId/messages/:messageId/translation",
 	retryTranslationController,
+);
+
+roomRoutes.post(
+	"/:roomId/messages/:messageId/dubs",
+	zValidator("json", requestDub, validationHook),
+	requestDubController,
+);
+
+roomRoutes.post(
+	"/:roomId/voice-notes",
+	zValidator("form", sendVoiceNote, validationHook),
+	sendVoiceNoteController,
+);
+
+roomRoutes.get(
+	"/:roomId/voice-notes/:voiceNoteId/media",
+	zValidator("query", getVoiceNoteMedia, validationHook),
+	streamVoiceNoteMediaController,
 );
 
 roomRoutes.post("/:roomId/calls", startCallController);

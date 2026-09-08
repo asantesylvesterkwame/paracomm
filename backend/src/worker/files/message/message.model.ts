@@ -7,6 +7,7 @@ import {
 } from "drizzle-orm/sqlite-core";
 import { sql } from "drizzle-orm";
 import { rooms } from "../room/room.model";
+import type { IVoiceNotePayload } from "../voice-note/voice-note.model";
 
 export const messages = sqliteTable(
 	"messages",
@@ -17,10 +18,11 @@ export const messages = sqliteTable(
 			.references(() => rooms.id),
 		clientId: text("client_id"),
 		senderId: text("sender_id").notNull(),
-		kind: text("kind", { enum: ["text", "call"] })
+		kind: text("kind", { enum: ["text", "call", "voice"] })
 			.notNull()
 			.default("text"),
 		callId: text("call_id"),
+		voiceNoteId: text("voice_note_id"),
 		originalText: text("original_text").notNull(),
 		originalLang: text("original_lang").notNull(),
 		translatedText: text("translated_text"),
@@ -47,3 +49,6 @@ export const messages = sqliteTable(
 
 export type IMessageRow = typeof messages.$inferSelect;
 export type IMessageInsert = typeof messages.$inferInsert;
+export type IMessagePayload = IMessageRow & {
+	voiceNote?: IVoiceNotePayload | null;
+};

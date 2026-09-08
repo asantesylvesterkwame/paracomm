@@ -1,6 +1,10 @@
 import { INPUT_LANGUAGES } from "@/files/live/live.constants";
-import { CALL_ENTRY_COPY } from "./call.constants";
-import type { CallStatus, ICaptionWireMessage } from "./call.interface";
+import { CALL_ENTRY_COPY, LANG_WIRE_KIND } from "./call.constants";
+import type {
+  CallStatus,
+  ICaptionWireMessage,
+  ILangWireMessage,
+} from "./call.interface";
 
 export const callEntryLabel = (status: CallStatus) =>
   CALL_ENTRY_COPY[status] ?? CALL_ENTRY_COPY.ended;
@@ -27,6 +31,18 @@ export const isCaptionWireMessage = (
     typeof candidate.lang === "string" &&
     typeof candidate.seq === "number" &&
     (candidate.state === "interim" || candidate.state === "final")
+  );
+};
+
+export const isLangWireMessage = (
+  value: unknown,
+): value is ILangWireMessage => {
+  if (!value || typeof value !== "object") return false;
+  const candidate = value as Partial<ILangWireMessage>;
+  return (
+    candidate.kind === LANG_WIRE_KIND &&
+    typeof candidate.lang === "string" &&
+    typeof candidate.seq === "number"
   );
 };
 

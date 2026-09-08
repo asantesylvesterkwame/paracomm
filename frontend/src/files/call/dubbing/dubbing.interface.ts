@@ -3,6 +3,7 @@ export type DubbingState =
   | "connecting"
   | "listening"
   | "speaking"
+  | "switching"
   | "reconnecting"
   | "limited"
   | "unavailable";

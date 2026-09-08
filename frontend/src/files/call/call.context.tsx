@@ -10,6 +10,7 @@ import {
 import { notify } from "@/utils";
 import { useUserSocket } from "@/context/UserSocketContext";
 import { useAuthContext } from "@/files/auth/auth.context";
+import { useRoomContext } from "@/files/room/room.context";
 import { CALL_EVENTS, RING_TIMEOUT_MS } from "./call.constants";
 import useCall from "./useCall";
 import type { ReactNode } from "react";
@@ -27,6 +28,7 @@ const CallContext = createContext<CallContextType | undefined>(undefined);
 export const CallProvider = ({ children }: { children: ReactNode }) => {
   const { profile } = useAuthContext();
   const { on, off } = useUserSocket();
+  const { rooms, upsertRoom } = useRoomContext();
 
   const [credentials, setCredentials] = useState<ICallCredentials | null>(null);
   const [incoming, setIncoming] = useState<IRingingPayload | null>(null);
@@ -106,6 +108,26 @@ export const CallProvider = ({ children }: { children: ReactNode }) => {
     if (!target) return;
     await end(target);
   }, [end, reset]);
+
+  const updateOtherUserLang = useCallback(
+    (lang: string) => {
+      const current = credentials;
+      if (!current) return;
+      if (current.otherUser.preferredLang !== lang) {
+        setCredentials({
+          ...current,
+          otherUser: { ...current.otherUser, preferredLang: lang },
+        });
+      }
+      const room = rooms.find((item) => item.id === current.call.roomId);
+      if (room && room.otherUser.preferredLang !== lang) {
+        upsertRoom(room.id, {
+          otherUser: { ...room.otherUser, preferredLang: lang },
+        });
+      }
+    },
+    [credentials, rooms, upsertRoom],
+  );
 
   useEffect(() => {
     const onRinging = (payload: unknown) => {
@@ -210,8 +232,10 @@ export const CallProvider = ({ children }: { children: ReactNode }) => {
       setIsMinimized,
       setIsCaptionsOn,
       setIsDubbingOn,
+      updateOtherUserLang,
     }),
     [
+      updateOtherUserLang,
       acceptCall,
       call,
       credentials,

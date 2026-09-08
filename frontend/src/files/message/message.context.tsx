@@ -44,11 +44,13 @@ import type { ReactNode } from "react";
 const MessageContext = createContext<MessageContextType | undefined>(undefined);
 
 const persistable = (items: IClientMessage[]) =>
-  capMessages(items, CACHED_MESSAGES_PER_ROOM).map((item) =>
-    item.clientStatus === "sending"
-      ? { ...item, clientStatus: "failed" as const, clientError: "network" as const }
-      : item,
-  );
+  capMessages(items, CACHED_MESSAGES_PER_ROOM).map((item) => {
+    const { localAudioUrl, ...rest } = item;
+    void localAudioUrl;
+    return rest.clientStatus === "sending"
+      ? { ...rest, clientStatus: "failed" as const, clientError: "network" as const }
+      : rest;
+  });
 
 export const MessageProvider = ({ children }: { children: ReactNode }) => {
   const { rooms, activeRoomId, upsertRoom } = useRoomContext();

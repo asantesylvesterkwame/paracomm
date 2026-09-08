@@ -19,110 +19,104 @@ const secondsToUtcMidnight = () => {
 	return Math.ceil((midnight - now.getTime()) / 1000);
 };
 
-export const checkMinuteLimit = async (env: Env, ipHash: string) => {
+const dayKey = () => new Date().toISOString().slice(0, 10).replaceAll("-", "");
+
+const DAILY_TTL_SECONDS = 90000;
+
+export interface IDailyBudgetOutcome {
+	allowed: boolean;
+	remaining: number;
+	retryAfterSeconds: number;
+}
+
+const consumeDailyBudget = async (
+	env: Env,
+	key: string,
+	budget: number,
+	amount: number,
+): Promise<IDailyBudgetOutcome> => {
+	const used = Number((await env.LIVE_QUOTA.get(key)) ?? "0");
+	if (used + amount > budget) {
+		return {
+			allowed: false,
+			remaining: Math.max(0, budget - used),
+			retryAfterSeconds: secondsToUtcMidnight(),
+		};
+	}
+	await env.LIVE_QUOTA.put(key, String(used + amount), {
+		expirationTtl: DAILY_TTL_SECONDS,
+	});
+	return {
+		allowed: true,
+		remaining: budget - used - amount,
+		retryAfterSeconds: 0,
+	};
+};
+
+const checkRateLimit = async (
+	limiter: RateLimit | undefined,
+	key: string,
+	label: string,
+) => {
 	try {
-		const { success } = await env.LIVE_RPM.limit({ key: ipHash });
+		if (!limiter) throw new Error(`${label} binding missing`);
+		const { success } = await limiter.limit({ key });
 		return success;
 	} catch (error) {
-		console.warn("rate limit binding unavailable, failing open", error);
+		console.warn(`${label} rate limit binding unavailable, failing open`, error);
 		return true;
 	}
 };
 
-export const checkCaptionMinuteLimit = async (env: Env, key: string) => {
-	try {
-		const { success } = await env.CAPTION_RPM.limit({ key });
-		return success;
-	} catch (error) {
-		console.warn("caption rate limit binding unavailable, failing open", error);
-		return true;
-	}
-};
+export const checkMinuteLimit = (env: Env, key: string) =>
+	checkRateLimit(env.LIVE_RPM, key, "live");
 
-export const checkAndConsumeDailyChars = async (
+export const checkCaptionMinuteLimit = (env: Env, key: string) =>
+	checkRateLimit(env.CAPTION_RPM, key, "caption");
+
+export const checkDubbingMinuteLimit = (env: Env, key: string) =>
+	checkRateLimit(env.DUBBING_RPM, key, "dubbing");
+
+export const checkAndConsumeDailyChars = (
 	env: Env,
 	ipHash: string,
 	chars: number,
-) => {
-	const day = new Date().toISOString().slice(0, 10).replaceAll("-", "");
-	const key = `live:day:${day}:${ipHash}`;
-	const budget = Number(env.DAILY_CHAR_BUDGET);
-	const used = Number((await env.LIVE_QUOTA.get(key)) ?? "0");
-	if (used + chars > budget) {
-		return {
-			allowed: false as const,
-			remaining: Math.max(0, budget - used),
-			retryAfterSeconds: secondsToUtcMidnight(),
-		};
-	}
-	await env.LIVE_QUOTA.put(key, String(used + chars), {
-		expirationTtl: 90000,
-	});
-	return {
-		allowed: true as const,
-		remaining: budget - used - chars,
-		retryAfterSeconds: 0,
-	};
-};
+) =>
+	consumeDailyBudget(
+		env,
+		`live:day:${dayKey()}:${ipHash}`,
+		Number(env.DAILY_CHAR_BUDGET),
+		chars,
+	);
 
-export const checkAndConsumeUserDailyChars = async (
+export const checkAndConsumeUserDailyChars = (
 	env: Env,
 	userId: string,
 	chars: number,
-) => {
-	const day = new Date().toISOString().slice(0, 10).replaceAll("-", "");
-	const key = `chat:day:${day}:${userId}`;
-	const budget = Number(env.CHAT_DAILY_CHAR_BUDGET);
-	const used = Number((await env.LIVE_QUOTA.get(key)) ?? "0");
-	if (used + chars > budget) {
-		return {
-			allowed: false as const,
-			remaining: Math.max(0, budget - used),
-			retryAfterSeconds: secondsToUtcMidnight(),
-		};
-	}
-	await env.LIVE_QUOTA.put(key, String(used + chars), {
-		expirationTtl: 90000,
-	});
-	return {
-		allowed: true as const,
-		remaining: budget - used - chars,
-		retryAfterSeconds: 0,
-	};
+) =>
+	consumeDailyBudget(
+		env,
+		`chat:day:${dayKey()}:${userId}`,
+		Number(env.CHAT_DAILY_CHAR_BUDGET),
+		chars,
+	);
+
+export type DailySecondsScope = "dub" | "voice";
+
+const SECONDS_BUDGET_OF: Record<DailySecondsScope, (env: Env) => number> = {
+	dub: (env) => Number(env.DUBBING_DAILY_SECONDS_BUDGET),
+	voice: (env) => Number(env.VOICE_DAILY_SECONDS_BUDGET),
 };
 
-export const checkDubbingMinuteLimit = async (env: Env, key: string) => {
-	try {
-		const { success } = await env.DUBBING_RPM.limit({ key });
-		return success;
-	} catch (error) {
-		console.warn("dubbing rate limit binding unavailable, failing open", error);
-		return true;
-	}
-};
-
-export const checkAndConsumeUserDailySeconds = async (
+export const checkAndConsumeUserDailySeconds = (
 	env: Env,
 	userId: string,
 	seconds: number,
-) => {
-	const day = new Date().toISOString().slice(0, 10).replaceAll("-", "");
-	const key = `dub:day:${day}:${userId}`;
-	const budget = Number(env.DUBBING_DAILY_SECONDS_BUDGET);
-	const used = Number((await env.LIVE_QUOTA.get(key)) ?? "0");
-	if (used + seconds > budget) {
-		return {
-			allowed: false as const,
-			remaining: Math.max(0, budget - used),
-			retryAfterSeconds: secondsToUtcMidnight(),
-		};
-	}
-	await env.LIVE_QUOTA.put(key, String(used + seconds), {
-		expirationTtl: 90000,
-	});
-	return {
-		allowed: true as const,
-		remaining: budget - used - seconds,
-		retryAfterSeconds: 0,
-	};
-};
+	scope: DailySecondsScope = "dub",
+) =>
+	consumeDailyBudget(
+		env,
+		`${scope}:day:${dayKey()}:${userId}`,
+		SECONDS_BUDGET_OF[scope](env),
+		seconds,
+	);

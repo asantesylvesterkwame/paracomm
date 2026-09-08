@@ -4,7 +4,10 @@ import {
 	messages,
 	type IMessageRow,
 	type IMessageInsert,
+	type IMessagePayload,
 } from "./message.model";
+import VoiceNoteRepository from "../voice-note/voice-note.repository";
+import { toVoiceNotePayload } from "../voice-note/voice-note.utils";
 import { PAGE_LENGTH } from "../../constants";
 import type { ICursor } from "../../utils/pagination";
 
@@ -35,6 +38,51 @@ class MessageRepository {
 			)
 			.limit(1);
 		return rows[0] ?? null;
+	}
+
+	static async fetchById(
+		env: Env,
+		messageId: string,
+	): Promise<IMessageRow | null> {
+		const rows = await this.db(env)
+			.select()
+			.from(messages)
+			.where(and(eq(messages.id, messageId), eq(messages.isDeleted, false)))
+			.limit(1);
+		return rows[0] ?? null;
+	}
+
+	static async withVoiceNotes(
+		env: Env,
+		rows: IMessageRow[],
+	): Promise<IMessagePayload[]> {
+		const ids = rows
+			.filter((row) => row.kind === "voice" && row.voiceNoteId)
+			.map((row) => row.voiceNoteId as string);
+		if (ids.length === 0) return rows;
+		const notes = await VoiceNoteRepository.fetchByIds(env, ids);
+		const dubs = await VoiceNoteRepository.fetchDubsForMany(env, ids);
+		const noteById = new Map(notes.map((note) => [note.id, note]));
+		return rows.map((row) => {
+			if (row.kind !== "voice" || !row.voiceNoteId) return row;
+			const note = noteById.get(row.voiceNoteId);
+			if (!note) return { ...row, voiceNote: null };
+			return {
+				...row,
+				voiceNote: toVoiceNotePayload(
+					note,
+					dubs.filter((dub) => dub.voiceNoteId === note.id),
+				),
+			};
+		});
+	}
+
+	static async withVoiceNote(
+		env: Env,
+		row: IMessageRow,
+	): Promise<IMessagePayload> {
+		const [hydrated] = await this.withVoiceNotes(env, [row]);
+		return hydrated;
 	}
 
 	static async fetchByClientId(

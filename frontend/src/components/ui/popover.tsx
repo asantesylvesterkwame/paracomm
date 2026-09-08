@@ -16,7 +16,7 @@ function PopoverContent({
   align = "center",
   alignOffset = 0,
   side = "bottom",
-  sideOffset = 4,
+  sideOffset = 6,
   ...props
 }: PopoverPrimitive.Popup.Props &
   Pick<
@@ -35,7 +35,7 @@ function PopoverContent({
         <PopoverPrimitive.Popup
           data-slot="popover-content"
           className={cn(
-            "z-50 flex w-72 origin-(--transform-origin) flex-col gap-4 rounded-2xl bg-popover p-4 text-sm text-popover-foreground shadow-2xl ring-1 ring-foreground/5 outline-hidden duration-100 data-[side=bottom]:slide-in-from-top-2 data-[side=inline-end]:slide-in-from-left-2 data-[side=inline-start]:slide-in-from-right-2 data-[side=left]:slide-in-from-right-2 data-[side=right]:slide-in-from-left-2 data-[side=top]:slide-in-from-bottom-2 data-open:animate-in data-open:fade-in-0 data-open:zoom-in-95 data-closed:animate-out data-closed:fade-out-0 data-closed:zoom-out-95",
+            "z-50 flex w-72 origin-(--transform-origin) flex-col gap-4 rounded-2xl bg-popover p-4 text-sm text-popover-foreground shadow-[0_18px_44px_-18px_rgba(0,0,0,0.45)] ring-1 ring-border outline-hidden transition-[opacity,transform,filter] duration-200 ease-[cubic-bezier(0.22,1,0.36,1)] data-starting-style:scale-[0.96] data-starting-style:opacity-0 data-starting-style:blur-[2px] data-ending-style:scale-[0.96] data-ending-style:opacity-0 data-ending-style:blur-[2px] motion-reduce:transition-opacity motion-reduce:data-starting-style:scale-100 motion-reduce:data-ending-style:scale-100",
             className
           )}
           {...props}
@@ -59,7 +59,7 @@ function PopoverTitle({ className, ...props }: PopoverPrimitive.Title.Props) {
   return (
     <PopoverPrimitive.Title
       data-slot="popover-title"
-      className={cn("text-base font-medium", className)}
+      className={cn("text-base font-medium tracking-tight", className)}
       {...props}
     />
   )

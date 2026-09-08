@@ -272,7 +272,19 @@ providers/dubbing/
   dubbing.provider.ts         createSession({ targetLang, ttlSeconds }) -> { token, expiresAt, model }
   geminiLive.provider.ts      mints a Gemini Live ephemeral token via POST /v1beta/auth_tokens
   dubbing.registry.ts         empty when GEMINI_API_KEY or DUBBING_MODEL is unset
+
+providers/transcription/
+  transcription.provider.ts   transcribe({ audioBase64, mimeType }) -> { text }
+  gemini.provider.ts          POST /v1beta/interactions with TRANSCRIPTION_MODEL and an inline audio block
+  transcription.registry.ts   empty when GEMINI_API_KEY or TRANSCRIPTION_MODEL is unset
+
+providers/tts/
+  tts.provider.ts             speak(text, lang) -> { audioBase64 (complete WAV), mimeType }
+  gemini.provider.ts          POST /v1beta/interactions with TTS_MODEL, wraps the PCM in a RIFF header
+  tts.registry.ts             empty when GEMINI_API_KEY is unset
 ```
+
+Voice notes chain three of these providers behind one entity, `files/voice-note/`, which owns the `voice_notes` and `voice_note_dubs` tables and hangs off `messages` through `kind: "voice"` plus `messages.voice_note_id`, exactly the way `calls` hangs off `kind: "call"`. `POST /api/v1/rooms/:roomId/voice-notes` takes multipart audio, stores the original in the `MEDIA` R2 bucket under `voice-notes/<roomId>/<voiceNoteId>/original.<ext>`, writes the message row with the placeholder text "Voice note" and `translationStatus: "pending"`, emits `message:new`, and then runs the pipeline in `waitUntil`: transcribe, overwrite `originalText` with the transcript, hand the row to `MessageService.translateMessage` (which detects the spoken language and translates for the reader like any text message), then `produceDub` speaks the translation and stores it under `dubs/<lang>.wav`. Every step emits `message:updated` with the message hydrated by `MessageRepository.withVoiceNote`, so dub progress rides on the existing event and needs no new socket vocabulary. `POST /:roomId/messages/:messageId/dubs` lets any participant add a language later, and the same route is the retry path when transcription failed. Audio is served by `GET /:roomId/voice-notes/:voiceNoteId/media?dub=<lang>`, an authenticated stream from R2 with immutable cache headers; there are no public buckets and no signed URLs. Quota is `VOICE_DAILY_SECONDS_BUDGET` per user per day through `checkAndConsumeUserDailySeconds(env, userId, seconds, "voice")`, and the minute cron marks pending work older than two minutes as failed so a dropped `waitUntil` never leaves a bubble spinning.
 
 Dubbing is the one provider whose output never flows through the Worker. `POST /api/v1/calls/:callId/dubbing` mints a short lived ephemeral token whose `liveConnectConstraints` pin the model, `responseModalities`, `translationConfig` and both transcription configs server side. The browser then holds the audio WebSocket to Google directly, so `GEMINI_API_KEY` never reaches the client and a Worker never proxies a call length audio stream. Usage is metered at mint time: each token consumes `DUBBING_SESSION_SECONDS` from the caller's `dub:day:<date>:<userId>` KV budget, guarded by the `DUBBING_RPM` rate limit binding.
 
@@ -287,7 +299,7 @@ Chat translation is unconditional and detection driven. Every text message is st
 There is no dotenv and no `core/config.js`. The translation:
 
 - Non-secret config → `vars` in `wrangler.json` (and `.dev.vars` locally). Secrets (`JWT_ACCESS_SECRET`, `GUEST_JWT_SECRET`, `DEEPL_API_KEY`, `GEMINI_API_KEY`) → `wrangler secret put`, never committed. cubbicles commits its `.env` and a Firebase service account JSON to the repo — that practice stops here.
-- Bindings (`DB` for D1, `DENYLIST`/`CACHE` for KV, `ROOM_DO`, `MEDIA` for R2) are declared in `wrangler.json` and typed by running `bun wrangler types` after any change, which regenerates `worker-configuration.d.ts`.
+- Bindings (`DB` for D1, `LIVE_QUOTA` for KV, `ROOM_DO` and `USER_DO`, `MEDIA` for R2, the `*_RPM` rate limiters) are declared in `wrangler.json` and typed by running `bun run cf-typegen` after any change, which regenerates `worker-configuration.d.ts`. `MEDIA` is the `paracomm-media` bucket and must exist in the account before the first deploy that references it (`bun wrangler r2 bucket create paracomm-media`); locally miniflare provisions it on first write.
 - Code accesses env exclusively through the typed `Env` on `c.env` — `process.env` does not exist. No dead keys: every var in `wrangler.json` is referenced, every referenced var is declared.
 - Feature flags: port `files/config/` as is — a D1 backed key/value entity with public `GET /api/v1/config/feature-flags` flattening rows into `{ [key]: value }`. It is the smallest cubbicles entity and the template for scaffolding new ones. Flags to launch with, from the plan: `ENABLE_TRANSLATION`, `ENABLE_TRANSCRIPTION`.
 - Scheduled work uses Cron Triggers in `wrangler.json` (e.g. expired instant room sweep). cubbicles' self-ping keep-alive cron has no Workers equivalent and is not ported.

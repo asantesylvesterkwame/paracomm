@@ -4,8 +4,11 @@ import { useRoomSocket } from "@/context/RoomSocketContext";
 import { useRoomContext } from "@/files/room/room.context";
 import { useAuthContext } from "@/files/auth/auth.context";
 import MessageService from "./message.service";
+import VoiceNoteService from "./voice-note/voice-note.service";
 import { useMessageContext } from "./message.context";
 import { MESSAGE_EVENTS, TYPING_THROTTLE_MS } from "./message.constants";
+import { VOICE_COPY } from "./voice-note/voice-note.constants";
+import { pendingRecordingStore } from "./voice-note/voice-note.utils";
 import {
   classifySendError,
   failedMessagesOf,
@@ -14,6 +17,26 @@ import {
   tempIdOf,
 } from "./message.utils";
 import type { IClientMessage } from "./message.interface";
+import type { IRecording } from "./voice-note/voice-note.interface";
+
+const RECORDING_LOST_ERROR = { code: "RECORDING_LOST", response: { status: 400 } };
+
+const sendByKind = (roomId: string, message: IClientMessage) => {
+  if (message.kind === "voice") {
+    const recording = pendingRecordingStore.get(message.clientId);
+    if (!recording) return Promise.reject(RECORDING_LOST_ERROR);
+    return VoiceNoteService.sendVoiceNote(
+      roomId,
+      recording,
+      message.clientId ?? message.id,
+    );
+  }
+  return MessageService.sendMessage(
+    roomId,
+    message.originalText,
+    message.clientId ?? message.id,
+  );
+};
 
 const useMessage = (roomId?: string) => {
   const { profile } = useAuthContext();
@@ -59,16 +82,14 @@ const useMessage = (roomId?: string) => {
     (targetRoomId: string, message: IClientMessage) => {
       queueRef.current = queueRef.current.then(() =>
         handleApiAction({
-          action: () =>
-            MessageService.sendMessage(
-              targetRoomId,
-              message.originalText,
-              message.clientId ?? message.id,
-            ),
+          action: () => sendByKind(targetRoomId, message),
           onSuccess: (result) => {
             if (!result?.data) {
               removeMessage(targetRoomId, message.id);
               return;
+            }
+            if (message.kind === "voice") {
+              pendingRecordingStore.take(message.clientId);
             }
             reconcileMessage(targetRoomId, result.data, message.id);
             upsertRoom(targetRoomId, {
@@ -120,6 +141,7 @@ const useMessage = (roomId?: string) => {
       senderId: profile.id,
       kind: "text",
       callId: null,
+      voiceNoteId: null,
       originalText: text,
       originalLang: profile.preferredLang,
       translatedText: null,
@@ -145,6 +167,79 @@ const useMessage = (roomId?: string) => {
     upsertMessage,
     upsertRoom,
   ]);
+
+  const sendVoiceNote = useCallback(
+    (recording: IRecording) => {
+      if (!roomId) {
+        notify({
+          type: "error",
+          message: "Open a conversation first",
+          description: "Pick a chat from the list, then record your note.",
+        });
+        return;
+      }
+      if (!profile) {
+        notify({
+          type: "error",
+          message: "Your profile is still loading",
+          description: "Give it a second and try again.",
+        });
+        return;
+      }
+      const now = new Date().toISOString();
+      const clientId = crypto.randomUUID();
+      const tempId = tempIdOf(clientId);
+      const optimistic: IClientMessage = {
+        id: tempId,
+        roomId,
+        clientId,
+        senderId: profile.id,
+        kind: "voice",
+        callId: null,
+        voiceNoteId: null,
+        voiceNote: {
+          id: tempId,
+          messageId: tempId,
+          roomId,
+          senderId: profile.id,
+          mimeType: recording.mimeType,
+          durationMs: recording.durationMs,
+          byteSize: recording.blob.size,
+          transcript: null,
+          transcriptLang: null,
+          transcriptionStatus: "pending",
+          transcriptionError: null,
+          dubs: [],
+          createdAt: now,
+          updatedAt: now,
+        },
+        originalText: VOICE_COPY.PREVIEW,
+        originalLang: profile.preferredLang,
+        translatedText: null,
+        translatedLang: null,
+        translationStatus: "none",
+        translationError: null,
+        createdAt: now,
+        updatedAt: now,
+        clientStatus: "sending",
+        localAudioUrl: URL.createObjectURL(recording.blob),
+      };
+      pendingRecordingStore.put(clientId, recording);
+      upsertMessage(roomId, optimistic);
+      upsertRoom(roomId, { lastMessage: optimistic, lastMessageAt: now });
+      stopTyping();
+      void dispatchSend(roomId, optimistic);
+    },
+    [dispatchSend, profile, roomId, stopTyping, upsertMessage, upsertRoom],
+  );
+
+  const dismissMessage = useCallback(
+    (id: string) => {
+      if (!roomId) return;
+      removeMessage(roomId, id);
+    },
+    [removeMessage, roomId],
+  );
 
   const retrySend = useCallback(
     (id: string) => {
@@ -221,6 +316,8 @@ const useMessage = (roomId?: string) => {
     draft,
     setDraft,
     send,
+    sendVoiceNote,
+    dismissMessage,
     retrySend,
     flushQueue,
     retryTranslation,

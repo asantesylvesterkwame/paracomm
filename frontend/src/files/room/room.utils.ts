@@ -1,4 +1,5 @@
 import { TEMP_ID_PREFIX } from "@/files/message/message.constants";
+import { VOICE_COPY } from "@/files/message/voice-note/voice-note.constants";
 import type { IUser } from "@/files/user/user.interface";
 import type { IRoom } from "./room.interface";
 
@@ -78,6 +79,9 @@ export const roomPreviewOf = (room: IRoom, myUserId?: string) => {
     };
   }
   const isOwn = message.senderId === myUserId;
+  if (message.kind === "voice") {
+    return { text: VOICE_COPY.PREVIEW, isTranslating: false, isOwn };
+  }
   const isTranslating = !isOwn && message.translationStatus === "pending";
   const text =
     !isOwn && message.translationStatus === "done" && message.translatedText

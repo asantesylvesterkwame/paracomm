@@ -30,6 +30,8 @@ export const RECONNECT_BASE_MS = 800;
 
 export const RECONNECT_MAX_MS = 8000;
 
+export const RETARGET_DEBOUNCE_MS = 600;
+
 export const DUBBING_HISTORY_LINES = 2;
 
 export const MAX_DUBBING_LINE_CHARS = 220;
@@ -39,6 +41,7 @@ export const DUBBING_COPY = {
   OFF: "Turn voice translation off",
   CONNECTING: "Starting voice",
   RECONNECTING: "Reconnecting voice",
+  SWITCHING: "Switching to",
   LIVE: "Voice",
   LIMITED: "Voice limit reached",
   FAILED: "Voice translation stopped. Subtitles still work",

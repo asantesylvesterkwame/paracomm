@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { AnimatePresence, motion } from "motion/react";
 import { Languages } from "lucide-react";
-import { Bubble, BubbleContent } from "@/components/ui/bubble";
+import { Bubble, BubbleContent } from "@/components/elements/BubbleElement";
 import ShimmerTextElement from "@/components/elements/ShimmerTextElement";
 import ButtonElement from "@/components/elements/ButtonElement";
 import { SPRING } from "@/lib/motion";
@@ -10,27 +10,37 @@ import { languageLabelOf } from "@/constants/languages.constants";
 import useDelayedFlag from "@/hooks/useDelayedFlag";
 import CallEntry from "@/components/common/CallEntry";
 import MessageStatus from "./MessageStatus";
+import VoiceNoteBubble from "./VoiceNoteBubble";
 import { TRANSLATING_HINT_DELAY_MS } from "../message.constants";
 import type { IClientMessage } from "../message.interface";
+import type { IDubRequestTarget } from "../voice-note/voice-note.interface";
 
 interface MessageBubbleProps {
   message: IClientMessage;
   isOwn: boolean;
   isSeen: boolean;
+  myLang: string;
+  requestingDubFor: IDubRequestTarget | null;
   onRetrySend: (id: string) => void;
   onRetryTranslation: (id: string) => void;
+  onDismiss: (id: string) => void;
+  onRequestDub: (messageId: string, lang: string) => void;
 }
 
 const MessageBubble = ({
   message,
   isOwn,
   isSeen,
+  myLang,
+  requestingDubFor,
   onRetrySend,
   onRetryTranslation,
+  onDismiss,
+  onRequestDub,
 }: MessageBubbleProps) => {
   const [showOriginal, setShowOriginal] = useState(false);
   const isTranslationPending =
-    !isOwn && message.kind !== "call" && message.translationStatus === "pending";
+    !isOwn && message.kind === "text" && message.translationStatus === "pending";
   const isTranslating = useDelayedFlag(
     isTranslationPending,
     TRANSLATING_HINT_DELAY_MS,
@@ -42,6 +52,21 @@ const MessageBubble = ({
         label={message.originalText}
         createdAt={message.createdAt}
         isOwn={isOwn}
+      />
+    );
+  }
+
+  if (message.kind === "voice") {
+    return (
+      <VoiceNoteBubble
+        message={message}
+        isOwn={isOwn}
+        isSeen={isSeen}
+        myLang={myLang}
+        requestingDubFor={requestingDubFor}
+        onRetrySend={onRetrySend}
+        onDismiss={onDismiss}
+        onRequestDub={onRequestDub}
       />
     );
   }

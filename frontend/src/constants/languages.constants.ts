@@ -31,6 +31,11 @@ export const PREFERRED_LANGUAGES: readonly ILanguageChoice[] = [
   { code: "am", label: "Amharic" },
 ] as const;
 
+export const TTS_UNSUPPORTED_LANGS: readonly string[] = ["tw", "ee", "ha", "yo"];
+
+export const isVoiceSupportedFor = (code: string) =>
+  !TTS_UNSUPPORTED_LANGS.includes(code);
+
 export const languageLabelOf = (code: string) =>
   PREFERRED_LANGUAGES.find((language) => language.code === code)?.label ?? code;
 

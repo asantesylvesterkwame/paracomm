@@ -7,9 +7,14 @@ import {
   useParticipantIds,
 } from "@daily-co/daily-react";
 import { useAuthContext } from "@/files/auth/auth.context";
+import { createLogger } from "@/utils/logger";
 import useLiveDubbing from "../dubbing/useLiveDubbing";
+import useCallLanguageSync from "../hooks/useCallLanguageSync";
+import { useCallContext } from "../call.context";
 import CallStage from "./CallStage";
 import type { ICallCredentials } from "../call.interface";
+
+const logger = createLogger("call-runtime");
 
 interface CallRuntimeProps {
   credentials: ICallCredentials;
@@ -33,6 +38,7 @@ const CallRuntime = ({
   onLeave,
 }: CallRuntimeProps) => {
   const { profile } = useAuthContext();
+  const { updateOtherUserLang } = useCallContext();
   const audioRef = useRef<ComponentRef<typeof DailyAudio>>(null);
   const remoteIds = useParticipantIds({ filter: "remote" });
   const remoteId = remoteIds[0];
@@ -40,6 +46,35 @@ const CallRuntime = ({
   const activeSpeakerId = useActiveSpeakerId();
 
   const myLang = profile?.preferredLang ?? "en";
+
+  useCallLanguageSync({ myLang, onRemoteLang: updateOtherUserLang });
+
+  useEffect(() => {
+    logger.log("remote audio", {
+      remoteId,
+      remoteCount: remoteIds.length,
+      hasPersistentTrack: Boolean(remoteAudio.persistentTrack),
+      trackState: remoteAudio.persistentTrack?.readyState,
+      isOff: remoteAudio.isOff,
+      state: remoteAudio.state,
+      subscribed: remoteAudio.subscribed,
+      activeSpeakerId,
+      isDubbingOn,
+      myLang,
+      otherUserLang: credentials.otherUser.preferredLang,
+    });
+  }, [
+    activeSpeakerId,
+    credentials.otherUser.preferredLang,
+    isDubbingOn,
+    myLang,
+    remoteAudio.isOff,
+    remoteAudio.persistentTrack,
+    remoteAudio.state,
+    remoteAudio.subscribed,
+    remoteId,
+    remoteIds.length,
+  ]);
 
   const dubbing = useLiveDubbing({
     callId: credentials.call.id,
@@ -51,7 +86,17 @@ const CallRuntime = ({
   });
 
   const isDubbingLive =
-    dubbing.state === "listening" || dubbing.state === "speaking";
+    dubbing.state === "listening" ||
+    dubbing.state === "speaking" ||
+    dubbing.state === "switching";
+
+  useEffect(() => {
+    logger.log("dubbing state", {
+      state: dubbing.state,
+      isDubbingLive,
+      unavailableReason: dubbing.unavailableReason,
+    });
+  }, [dubbing.state, dubbing.unavailableReason, isDubbingLive]);
 
   useEffect(() => {
     if (!remoteId) return;

@@ -23,6 +23,7 @@ import {
 	MAX_CALL_PARTICIPANTS,
 } from "./call.constants";
 import { buildCallSummary, callDisplayName } from "./call.utils";
+import { createLogger } from "../../utils/logger";
 import type { IActor } from "../../utils/auth";
 import type { ICallRow, CallStatus } from "./call.model";
 import type { IUser } from "../user/user.model";
@@ -31,6 +32,8 @@ import type {
 	IEndCallBody,
 	IStartDubbingBody,
 } from "./call.validation";
+
+const dubbingLogger = createLogger("dubbing:service");
 
 class CallService {
 	static async startCall(env: Env, roomId: string, actor: IActor) {
@@ -377,12 +380,36 @@ class CallService {
 		body: IStartDubbingBody,
 		actor: IActor,
 	) {
+		const startedAt = Date.now();
+		dubbingLogger.log("start requested", {
+			callId,
+			targetLang: body.targetLang,
+			actorClerkId: actor.clerkId,
+		});
 		const context = await CallService.resolveParticipant(env, callId, actor);
-		if (!context.success) return context;
-		const { me } = context.data;
+		if (!context.success) {
+			dubbingLogger.warn("participant check failed", {
+				callId,
+				message: context.message,
+			});
+			return context;
+		}
+		const { me, call } = context.data;
+		dubbingLogger.log("participant resolved", {
+			userId: me.id,
+			callStatus: call.status,
+			callProvider: call.providerName,
+		});
 
 		const providers = getDubbingProviders(env);
+		dubbingLogger.log("providers", {
+			count: providers.length,
+			names: providers.map((provider) => provider.name),
+			model: env.DUBBING_MODEL,
+			apiKeyPresent: Boolean(env.GEMINI_API_KEY),
+		});
 		if (providers.length === 0) {
+			dubbingLogger.error("dubbing not configured");
 			return {
 				success: false as const,
 				message: callMessages.DUBBING_NOT_CONFIGURED,
@@ -390,6 +417,7 @@ class CallService {
 		}
 
 		const withinRate = await checkDubbingMinuteLimit(env, `dubbing:${me.id}`);
+		dubbingLogger.log("minute rate check", { withinRate });
 		if (!withinRate) {
 			return {
 				success: false as const,
@@ -404,7 +432,9 @@ class CallService {
 			env,
 			me.id,
 			sessionSeconds,
+			"dub",
 		);
+		dubbingLogger.log("daily quota check", { sessionSeconds, ...quota });
 		if (!quota.allowed) {
 			return {
 				success: false as const,
@@ -419,6 +449,12 @@ class CallService {
 			const outcome = await provider.createSession(env, {
 				targetLang: body.targetLang,
 				ttlSeconds: sessionSeconds,
+			});
+			dubbingLogger.log("provider outcome", {
+				provider: provider.name,
+				ok: outcome.ok,
+				elapsedMs: Date.now() - startedAt,
+				error: outcome.ok ? undefined : outcome.error,
 			});
 			if (outcome.ok) {
 				return {
@@ -441,6 +477,10 @@ class CallService {
 			);
 		}
 
+		dubbingLogger.error("all providers failed, responding 502", {
+			callId,
+			elapsedMs: Date.now() - startedAt,
+		});
 		return {
 			success: false as const,
 			message: callMessages.DUBBING_PROVIDER_FAILED,

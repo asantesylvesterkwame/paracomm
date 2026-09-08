@@ -12,12 +12,15 @@ import { Minimize2 } from "lucide-react";
 import ButtonElement from "@/components/elements/ButtonElement";
 import ShimmerTextElement from "@/components/elements/ShimmerTextElement";
 import { FADE, SPRING } from "@/lib/motion";
+import { notify } from "@/utils";
 import { formatDuration } from "@/utils/text";
 import { languageLabelOf } from "@/constants/languages.constants";
 import { useAuthContext } from "@/files/auth/auth.context";
-import { CALL_COPY } from "../call.constants";
+import useAuth from "@/files/auth/useAuth";
+import { CALL_COPY, hearingIn } from "../call.constants";
 import useCallCaptions from "../useCallCaptions";
 import CallControls from "./CallControls";
+import CallLanguagePicker from "./CallLanguagePicker";
 import CallPill from "./CallPill";
 import DubbingStatus from "./DubbingStatus";
 import SubtitleTrack from "./SubtitleTrack";
@@ -52,6 +55,7 @@ const CallStage = ({
 }: CallStageProps) => {
   const daily = useDaily();
   const { profile } = useAuthContext();
+  const { updatePreferredLang, isLoadingUpdateLang } = useAuth();
   const localSessionId = useLocalSessionId();
   const meetingState = useMeetingState();
   const remoteIds = useParticipantIds({ filter: "remote" });
@@ -67,8 +71,18 @@ const CallStage = ({
   const hasRemote = Boolean(remoteId);
 
   const isDubbingActive =
-    dubbing.state === "listening" || dubbing.state === "speaking";
+    dubbing.state === "listening" ||
+    dubbing.state === "speaking" ||
+    dubbing.state === "switching";
   const myLang = profile?.preferredLang ?? "en";
+
+  const changeLanguage = useCallback(
+    (lang: string) => {
+      updatePreferredLang(lang);
+      notify({ type: "info", message: hearingIn(languageLabelOf(lang)) });
+    },
+    [updatePreferredLang],
+  );
 
   const otherName =
     otherUser.displayName ?? otherUser.username ?? "Your contact";
@@ -138,9 +152,15 @@ const CallStage = ({
       <header className="absolute inset-x-0 top-0 z-20 flex items-start justify-between gap-3 p-4">
         <span className="flex flex-col gap-1 rounded-2xl bg-background/60 px-3 py-2 backdrop-blur-xl">
           <span className="text-sm font-medium">{otherName}</span>
-          <span className="text-xs text-muted-foreground tabular-nums">
-            {languageLabelOf(otherUser.preferredLang)} to{" "}
-            {languageLabelOf(myLang)} · {formatDuration(elapsedSeconds)}
+          <span className="flex items-center gap-1.5 text-xs text-muted-foreground tabular-nums">
+            <CallLanguagePicker
+              myLang={myLang}
+              otherUserLang={otherUser.preferredLang}
+              isBusy={isLoadingUpdateLang}
+              onSelect={changeLanguage}
+            />
+            <span aria-hidden>·</span>
+            <span>{formatDuration(elapsedSeconds)}</span>
           </span>
           <DubbingStatus state={dubbing.state} targetLang={myLang} />
         </span>
